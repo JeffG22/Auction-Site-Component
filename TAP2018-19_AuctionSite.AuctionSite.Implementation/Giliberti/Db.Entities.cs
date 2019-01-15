@@ -14,7 +14,7 @@ namespace Giliberti
     public partial class Site : ISite
     {
         [Key, MinLength(DomainConstraints.MinSiteName), MaxLength(DomainConstraints.MaxSiteName)]
-        public string Name { get; } // Name: unique, not null, not empty - identification -> PK
+        public string Name { set; get; } // Name: unique, not null, not empty - identification -> PK
         [Required, Range(DomainConstraints.MinTimeZone, DomainConstraints.MaxTimeZone)]
         public int Timezone { get; } // TimeZone: required - get the time
         [Required]
@@ -31,18 +31,18 @@ namespace Giliberti
     public partial class User : IUser
     {
         [Key, Column(Order = 1), MinLength(DomainConstraints.MinUserName), MaxLength(DomainConstraints.MaxUserName)]
-        public string Username { get; }
+        public string Username { set; get; }
         [MinLength(DomainConstraints.MinUserPassword)] // no MaxLenght per hashing
         public string Password { set; get; } // TODO gestione hashing, set e get
 
         // foreign key
         [Key, Column(Order = 2), ForeignKey("Site")]
-        public string SiteName { get; }
+        public string SiteName { set; get; }
         [ForeignKey("Session")]
         public string SessionId { set; get; }
 
         // navigation properties
-        [ForeignKey("SiteName")] public virtual Site Site { get; }
+        [ForeignKey("SiteName")] public virtual Site Site { set; get; }
         [ForeignKey("SessionId")] public virtual Session Session { set; get; }
         // Auction associate, necessario join esplicito per capire seller/winner
         public virtual ICollection<Auction>Auction { set; get; } 
@@ -50,18 +50,18 @@ namespace Giliberti
 
     public partial class Session : ISession
     {
-        [Key] public string Id { get; }
+        [Key] public string Id { set; get; }
         [Required] public DateTime ValidUntil { set; get; }
 
         // foreign key
         [Required, ForeignKey("User"), Column(Order = 1)]
-        public string Username { get; }
+        public string Username { set; get; }
         [Required, ForeignKey("User"), Column(Order = 2)]
-        public string SiteName { get; }
+        public string SiteName { set; get; }
 
         // navigation propreties
-        public virtual Site Site { get; } 
-        public virtual IUser User { get; } // TODO correzione
+        public virtual Site Site { set; get; } 
+        public virtual IUser User { set; get; } // TODO correzione
     }
 
     public partial class Auction : IAuction
@@ -69,7 +69,7 @@ namespace Giliberti
         [NotMapped] internal const int MaxAuctionDesc = 1000;
 
         [Key, Column(Order = 1)]
-        public int Id { get; }
+        public int Id { set; get; }
         [StringLength(MaxAuctionDesc)]
         public string Description { get; }
         [Required]
@@ -80,17 +80,17 @@ namespace Giliberti
 
         // Foreign Key
         [Key, Column(Order = 2), ForeignKey("Site")]
-        public string SiteName { get; }
+        public string SiteName { set; get; }
         [Required, ForeignKey("Seller"), Column(Order = 1)]
-        public string SellerUsername { get; }
+        public string SellerUsername { set; get; }
         [ForeignKey("Winner"), Column(Order = 1)]
         public string WinnerUsername { set; get; }
 
         // Navigation properties
         [ForeignKey("SiteName")]
-        public virtual Site Site { get; }
+        public virtual Site Site { set; get; }
         [ForeignKey("SellerUsername")]
-        public virtual IUser Seller { get; }
+        public virtual IUser Seller { set; get; }
         [ForeignKey("WinnerUsername")]
         public virtual User Winner { set; get; } // da determinare successivamente
 

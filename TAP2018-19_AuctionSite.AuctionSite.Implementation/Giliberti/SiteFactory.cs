@@ -71,13 +71,10 @@ namespace Giliberti
 
             // setup
             Database.Delete(connectionString); // dropping existing previous version, if any
-            Database.SetInitializer(new CreateDatabaseIfNotExists<AuctionSiteContext>());
             try
             {
-                Console.WriteLine(connectionString);
                 using (var context = new AuctionSiteContext(connectionString))
                 {
-                    context.Database.Delete();
                     context.Database.Create();
                     context.Sites.Create();
                     context.Users.Create();
