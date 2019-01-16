@@ -13,7 +13,7 @@ namespace Giliberti
     {
         public override void Load()
         {
-            Database.SetInitializer<AuctionSiteContext>(new CreateDatabaseIfNotExists<AuctionSiteContext>());
+            Database.SetInitializer<AuctionSiteContext>(new DropCreateDatabaseAlways<AuctionSiteContext>());
             // SingletonScope
             this.Bind<ISiteFactory>().To<SiteFactory>().InSingletonScope();
             // Default: Transient Scope

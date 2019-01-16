@@ -59,9 +59,9 @@ namespace Giliberti
 
                 if (sqlException == null)
                     throw new UnavailableDbException("Failure to persist or retrieve data to/from DB", error);
-                if (sqlException.ErrorCode == SqlPrimaryKeyConstraint)
+                if (sqlException.Number == SqlPrimaryKeyConstraint)
                     throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated primary key", error);
-                else if (sqlException.ErrorCode == SqlUniqueConstraint)
+                else if (sqlException.Number == SqlUniqueConstraint)
                     throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated unique index", error);
                 else
                     throw new UnavailableDbException("sqlException occurred sending updates to the database", error);

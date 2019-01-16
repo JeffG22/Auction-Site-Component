@@ -81,6 +81,7 @@ namespace Giliberti
         [NotMapped] internal const int MaxAuctionDesc = 1000;
 
         [Key, Column(Order = 2)]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { set; get; }
         [StringLength(MaxAuctionDesc)]
         public string Description { set; get; }

@@ -42,7 +42,8 @@ namespace Giliberti
         internal static void ChecksOnContextAndClock(AuctionSiteContext db, IAlarmClock alarmClock)
         {
             if (db == null || alarmClock == null)
-                throw new UnavailableDbException("State of entity out of context, no data available");
+                // throw new UnavailableDbException("State of entity out of context, no data available"); BUG IOE expected
+                throw new InvalidOperationException("State of entity out of context, no data available");
         }
 
         internal static void ChecksOnDbConnection(AuctionSiteContext db)
@@ -70,6 +71,7 @@ namespace Giliberti
 
             // setup
             Database.Delete(connectionString); // dropping existing previous version, if any
+            Database.SetInitializer(new DropCreateDatabaseAlways<AuctionSiteContext>());
             try
             {
                 using (var context = new AuctionSiteContext(connectionString))

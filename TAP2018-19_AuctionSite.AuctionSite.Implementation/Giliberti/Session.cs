@@ -57,6 +57,18 @@ namespace Giliberti
             return ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
 
+        public bool IsValid(DateTime timeClock)
+        {
+            // controllo che sia correttamente creata e presente sul DB
+            if (Db == null)
+                throw new InvalidOperationException("It was not possible to reach the Db, context disposed");
+            SiteFactory.ChecksOnDbConnection(Db);
+            if (!Db.Sessions.Any(s => s.Id == this.Id))
+                throw new InvalidOperationException(nameof(Session) + " not consistent");
+
+            return ValidUntil.CompareTo(timeClock) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
+        }
+
         public void Logout()
         {
             if (Db == null)
@@ -84,7 +96,7 @@ namespace Giliberti
                 throw new ArgumentException("is empty", nameof(description));
             if (startingPrice < 0)
                 throw new ArgumentOutOfRangeException(nameof(startingPrice), "is negative");
-            if (endsOn.CompareTo(AlarmClock.Now) <= 0)
+            if (endsOn.CompareTo(AlarmClock.Now) < 0)
                 throw new UnavailableTimeMachineException("endsOn precedes the current ISite's time");
             if (!Db.Sessions.Any(s => s.Id == this.Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");

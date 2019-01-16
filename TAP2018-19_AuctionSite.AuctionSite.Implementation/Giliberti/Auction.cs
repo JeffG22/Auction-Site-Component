@@ -27,12 +27,11 @@ namespace Giliberti
 
         public Auction(string description, DateTime endsOn, double startingPrice, string username, string siteName)
         {
-            // TODO verificare id assegnato automaticamente
             this.Description = description;
             this.EndsOn = endsOn;
             this.SellerUsername = username;
             this.SiteName = siteName;
-            this.FirstBid = false;
+            this.FirstBid = true;
             this.CurrentPrice = startingPrice;
             this.HighestPrice = startingPrice;
             this.WinnerUsername = null;
@@ -110,6 +109,9 @@ namespace Giliberti
                 this.CurrentPrice = offer + minimum < HighestPrice ? offer + minimum : HighestPrice;
             else
             {
+                if (!this.FirstBid && this.WinnerUsername != s.Username)
+                    this.CurrentPrice = offer < HighestPrice + minimum ? offer : HighestPrice + minimum;
+
                 HighestPrice = offer;
                 this.SiteNameWinner = s.SiteName;
                 this.WinnerUsername = s.Username;
@@ -121,8 +123,6 @@ namespace Giliberti
                 {
                     throw new InvalidOperationException("the user does not exist anymore", e);
                 }
-                if (!this.FirstBid)
-                    this.CurrentPrice = (offer < HighestPrice + minimum) ? offer : HighestPrice + minimum;
             }
             this.FirstBid = false;
             Db.SaveChanges();

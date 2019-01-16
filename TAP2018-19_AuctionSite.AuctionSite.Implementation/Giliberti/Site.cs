@@ -89,7 +89,7 @@ namespace Giliberti
             if (!Db.Users.Any(u => (u.Username == username && u.Password == password && u.SiteName == this.Name))) // l'utente non esiste o dati sbagliati
                 return null;
 
-            var session = Db.Sessions.Where(s => s.Id == Name+username).Select(s => s).SingleOrDefault(); // sessione
+            var session = Db.Sessions.Where(s => s.Id == Name+username).Select(s => s).SingleOrDefault(); // TODO refacotring
 
             if (session == null ) // l'utente esiste e non ha una sessione attiva
             {
@@ -125,17 +125,19 @@ namespace Giliberti
 
         public void CleanupSessions()
         {
+            if (Db == null)
+                throw new InvalidOperationException("It was not possible to reach the Db, context disposed");
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock); // TODO se non ce l'ho devo gestirmela avendo il timezone
             SiteFactory.ChecksOnDbConnection(Db);
             if (!Db.Sites.Any(s => s.Name == this.Name))
                 throw new InvalidOperationException("the site is deleted");
 
+            var dateTimeClock = new DateTime().ToUniversalTime().AddHours(this.Timezone);
             var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
             foreach (var s in sessions)
             {
-                s.AlarmClock = AlarmClock;
                 s.Db = Db;
-                if (!s.IsValid())
+                if (!s.IsValid(dateTimeClock))
                     s.Logout();
             }
             Db.SaveChanges();
@@ -251,7 +253,8 @@ namespace Giliberti
             Db.Sites.Remove(this);
             Db.SaveChanges();
             AlarmClock = null;
-            Db.Dispose(); // dispose del contesto
+            Db = null;
+            // Db.Dispose(); // dispose del contesto BUG sul SiteFactory
         }
     }
 }
