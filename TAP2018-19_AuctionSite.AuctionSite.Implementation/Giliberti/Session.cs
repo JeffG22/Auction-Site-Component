@@ -101,9 +101,16 @@ namespace Giliberti
             if (!Db.Sessions.Any(s => s.Id == this.Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
+            Site siteSession = null;
+            siteSession = Db.Sites.SingleOrDefault(site => site.Name == this.SiteName);
+            if (siteSession == null)
+                throw new InvalidOperationException("the site does not exist anymore");
+
+            var time = siteSession.SessionExpirationInSeconds;
             var auction = new Auction(description, endsOn, startingPrice, this.Username, this.SiteName);
             Db.Auctions.Add(auction);
-            this.ResetTime(this.Site.SessionExpirationInSeconds);
+            this.ResetTime(time);
+
             Db.SaveChanges();
 
             auction.Db = Db;

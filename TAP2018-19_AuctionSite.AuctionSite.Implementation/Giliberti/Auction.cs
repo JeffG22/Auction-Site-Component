@@ -89,7 +89,12 @@ namespace Giliberti
             s.ResetTime(this.Site.SessionExpirationInSeconds);
             Db.SaveChanges();
 
-            var minimum = s.Site.MinimumBidIncrement;
+            Site siteAuction = null;
+            siteAuction = Db.Sites.SingleOrDefault(site => site.Name == s.SiteName);
+            if (siteAuction == null)
+                throw new InvalidOperationException("the site does not exist anymore");
+            var minimum = siteAuction.MinimumBidIncrement;
+
             if (BidIsNotAccepted(s.Username, offer, minimum))
                 return false;
 
