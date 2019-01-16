@@ -29,9 +29,9 @@ namespace Giliberti
             AlarmClock = null;
         }
 
-        public Session(string id, DateTime validUntil, string username, string siteName )
+        public Session(DateTime validUntil, string username, string siteName)
         {
-            Id = id;
+            Id = siteName+username;
             ValidUntil = validUntil;
             Username = username;
             SiteName = siteName;
@@ -44,42 +44,24 @@ namespace Giliberti
                 throw new UnavailableDbException("State of entity out of context, no data available");
             ValidUntil = AlarmClock.Now.AddSeconds(seconds);
         }
-        private void ChecksOnContextAndClock()
-        {
-            if (Db == null || AlarmClock == null)
-                throw new UnavailableDbException("State of entity out of context, no data available");
-        }
-
-        private void ChecksOnDbConnection()
-        {
-            try
-            {
-                Db.Database.Connection.Open();
-                Db.Database.Connection.Close();
-            }
-            catch (DbException e)
-            {
-                throw new UnavailableDbException("Invalid context, it was not possible to connect to the DB", e);
-            }
-        }
+        
         // member functions
         public bool IsValid()
         {
             // controllo che sia correttamente creata e presente sul DB
-            ChecksOnContextAndClock();
-            ChecksOnDbConnection();
-
+            SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
+            SiteFactory.ChecksOnDbConnection(Db);
             if (!Db.Sessions.Any(s => s.Id == this.Id))
                 throw new InvalidOperationException(nameof(Session)+" not consistent");
 
-            return ValidUntil.CompareTo(AlarmClock.Now) < 0; // istanza precedente al parametro
+            return ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
 
         public void Logout()
         {
             if (Db == null)
                 throw new UnavailableDbException("State of entity out of context, no data available");
-            ChecksOnDbConnection();
+            SiteFactory.ChecksOnDbConnection(Db);
 
             if (!Db.Sessions.Any(s => s.Id == this.Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
@@ -93,8 +75,8 @@ namespace Giliberti
 
         public IAuction CreateAuction(string description, DateTime endsOn, double startingPrice)
         {
-            ChecksOnContextAndClock();
-            ChecksOnDbConnection();
+            SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
+            SiteFactory.ChecksOnDbConnection(Db);
 
             if (description == null)
                 throw new ArgumentNullException(nameof(description), "is null");
@@ -111,12 +93,16 @@ namespace Giliberti
             siteSession = Db.Sites.SingleOrDefault(site => site.Name == this.SiteName);
             if (siteSession == null)
                 throw new InvalidOperationException("the site does not exist anymore");
+            User seller = null;
+            seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == this.Username);
+            if (seller == null)
+                throw new InvalidOperationException("the user does not exist anymore");
 
             var time = siteSession.SessionExpirationInSeconds;
-            var auction = new Auction(description, endsOn, startingPrice, this.Username, this.SiteName);
+            var auction =
+                new Auction(description, endsOn, startingPrice, this.Username, this.SiteName) {Seller = seller};
             Db.Auctions.Add(auction);
             this.ResetTime(time);
-
             Db.SaveChanges();
 
             auction.Db = Db;

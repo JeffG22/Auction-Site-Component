@@ -27,6 +27,7 @@ namespace Giliberti
 
         public Auction(string description, DateTime endsOn, double startingPrice, string username, string siteName)
         {
+            // TODO verificare id assegnato automaticamente
             this.Description = description;
             this.EndsOn = endsOn;
             this.SellerUsername = username;
@@ -40,7 +41,7 @@ namespace Giliberti
         internal bool IsEnded()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
-            return EndsOn.CompareTo(AlarmClock.Now) < 0;
+            return EndsOn.CompareTo(AlarmClock.Now) < 0; // se minore di zero allora la fine dell'asta è antecedente l'ora attuale
         }
 
         private void ChecksOnSession(Session session)
@@ -63,10 +64,10 @@ namespace Giliberti
 
         private bool BidIsNotAccepted(string username, double offer, double minimum)
         {
-            return username == this.WinnerUsername && offer < HighestPrice + minimum ||
-                   username != this.WinnerUsername && offer < CurrentPrice && CurrentPrice.Equals(HighestPrice) ||
-                   username != this.WinnerUsername && offer < CurrentPrice + minimum &&
-                   !CurrentPrice.Equals(HighestPrice);
+            return username == this.WinnerUsername &&
+                   offer < HighestPrice + minimum || // sono il vincitore corrente, offerta troppo bassa
+                   username != this.WinnerUsername && offer < CurrentPrice && FirstBid || // prima offerta, troppo bassa
+                   username != this.WinnerUsername && offer < CurrentPrice + minimum && !FirstBid; // non è la prima, troppo bassa
         }
 
         public bool BidOnAuction(ISession session, double offer)
@@ -83,9 +84,9 @@ namespace Giliberti
                 throw new InvalidOperationException("the auction is already closed");
             if (!Db.Auctions.Any(a => a.Id == this.Id && a.SiteName == this.SiteName))
                 throw new InvalidOperationException("the auction does not exist anymore");
-
-            if (!(session is Session)) // TODO verificare se serve anche altrove
+            if (!(session is Session))
                 throw new InvalidOperationException("the session is out of the context");
+
             var s = (Session) session;
             s.Db = Db;
             s.AlarmClock = AlarmClock;
@@ -110,8 +111,16 @@ namespace Giliberti
             else
             {
                 HighestPrice = offer;
+                this.SiteNameWinner = s.SiteName;
                 this.WinnerUsername = s.Username;
-                this.Winner = Db.Users.Single(u => u.Username == WinnerUsername && u.SiteName == SiteName);
+                try
+                {
+                    this.Winner = Db.Users.Single(u => u.Username == WinnerUsername && u.SiteName == SiteName);
+                }
+                catch (ArgumentNullException e)
+                {
+                    throw new InvalidOperationException("the user does not exist anymore", e);
+                }
                 if (!this.FirstBid)
                     this.CurrentPrice = (offer < HighestPrice + minimum) ? offer : HighestPrice + minimum;
             }

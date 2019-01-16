@@ -67,7 +67,6 @@ namespace Giliberti
         {
             // constraints
             ChecksOnConnectionString(connectionString);
-            Console.WriteLine(connectionString);
 
             // setup
             Database.Delete(connectionString); // dropping existing previous version, if any
@@ -100,10 +99,10 @@ namespace Giliberti
                 Site.NotValidMinimumBiddingIncr(minimumBidIncrement))
                 throw new ArgumentOutOfRangeException();
 
-
             //creation
             using (var context = new AuctionSiteContext(connectionString))
             {
+                ChecksOnDbConnection(context);
                 if(context.Sites.Any(s => s.Name == name))
                     throw new NameAlreadyInUseException(nameof(name), " of site already in use");
                 context.Sites.Add(new Site(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
@@ -121,16 +120,16 @@ namespace Giliberti
 
             // attempt to Load Site
             var context = new AuctionSiteContext(connectionString);
-            var site = context.Sites.Find(name);
+            ChecksOnDbConnection(context);
+            var site = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
             if (site == null)
                 throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
             if (site.Timezone != alarmClock.Timezone)
                 throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
             // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
-            ((Site) site).AlarmClock = alarmClock;
-            ((Site)site).Db = context; // dispose entrusted to it
-            // context.SaveChanges();
+            site.AlarmClock = alarmClock;
+            site.Db = context; // dispose entrusted to it
 
             var alarm = alarmClock.InstantiateAlarm(CleanUpTimeInSec);
             var siteName = site.Name;
@@ -150,7 +149,8 @@ namespace Giliberti
             int timezone;
             using (var context = new AuctionSiteContext(connectionString))
             {
-                var site = context.Sites.Find(name);
+                ChecksOnDbConnection(context);
+                var site = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
                 if (site == null)
                     throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
                 timezone = site.Timezone;
@@ -167,6 +167,7 @@ namespace Giliberti
             // attempt to Load Site and get each site name
             using (var context = new AuctionSiteContext(connectionString))
             {
+                ChecksOnDbConnection(context);
                 var sites = context.Sites.Select(s => s.Name).AsNoTracking();
                 return sites;
             }
@@ -178,7 +179,8 @@ namespace Giliberti
             ChecksOnName(siteName);
             using (var context = new AuctionSiteContext(connectionString))
             {
-                var site = context.Sites.Find(siteName);
+                ChecksOnDbConnection(context);
+                var site = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
 
                 if (site == null)
                     alarm.Dispose(); // prova a vedere se ci sono problemi

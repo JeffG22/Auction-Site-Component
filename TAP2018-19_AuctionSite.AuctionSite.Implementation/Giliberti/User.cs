@@ -51,7 +51,7 @@ namespace Giliberti
 
             var auctions = Db.Auctions.Where(a => a.SiteName == this.SiteName && a.WinnerUsername == this.Username)
                 .Select(a => a).ToList();
-            List<Auction> auctionList = new List<Auction>();
+            var auctionList = new List<Auction>();
 
             foreach (var a in auctions)
             {
@@ -74,16 +74,14 @@ namespace Giliberti
             // owner of auctions not ended yet, winner of auctions not ended yet -> IOE exception
             var anySellerAuctions = Db.Auctions.Where(a => a.SellerUsername == this.Username && a.SiteName == this.SiteName);
             var anyWinnerAuctions = Db.Auctions.Where(a => a.WinnerUsername == this.Username && a.SiteName == this.SiteName);
-            bool deletable = true;
+            var deletable = true;
             foreach (var a in anySellerAuctions)
             {
                 a.Db = Db;
                 a.AlarmClock = AlarmClock;
-                if (!a.IsEnded())
-                {
-                    deletable = true;
-                    break;
-                }
+                if (a.IsEnded()) continue;
+                deletable = false;
+                break;
             }
             if (!deletable)
                 throw new InvalidOperationException("the user's auction(s) is not ended yet");
@@ -91,25 +89,26 @@ namespace Giliberti
             {
                 a.Db = Db;
                 a.AlarmClock = AlarmClock;
-                if (!a.IsEnded())
-                {
-                    deletable = true;
-                    break;
-                }
+                if (a.IsEnded()) continue;
+                deletable = true;
+                break;
             }
             if (!deletable)
                 throw new InvalidOperationException("the user is winning an auction not ended yet");
 
             // ended owned auctions are disposed, ended won auctions are updated
             foreach (var a in anySellerAuctions)
-            {
                 a.Delete();
-            }
+
             foreach (var a in anySellerAuctions)
             {
                 a.WinnerUsername = null;
                 a.Winner = null;
             }
+
+            var sessions = Db.Sessions.Where(s => s.SiteName == SiteName && s.Username == Username).Select(s => s);
+            foreach (var s in sessions)
+                Db.Sessions.Remove(s);
 
             // the user is removed and the Db and AlarmClock must be null
             Db.Users.Remove(this);
