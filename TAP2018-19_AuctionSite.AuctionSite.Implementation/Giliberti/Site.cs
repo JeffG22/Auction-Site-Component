@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text;
-using System.Threading.Tasks;
 using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
@@ -68,7 +64,7 @@ namespace Giliberti
             ChecksOnUsernameAndPassword(username, password);
 
             if(Db == null)
-                throw new UnavailableDbException("It was not possible to reach the Db");
+                throw new InvalidOperationException("It was not possible to reach the Db");
             SiteFactory.ChecksOnDbConnection(Db);
             if (!Db.Sites.Any(s => s.Name == this.Name))
                 throw new InvalidOperationException("the site is deleted");
@@ -133,7 +129,7 @@ namespace Giliberti
                 throw new InvalidOperationException("the site is deleted");
 
             var dateTimeClock = new DateTime().ToUniversalTime().AddHours(this.Timezone);
-            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
+            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s).ToList();
             foreach (var s in sessions)
             {
                 s.Db = Db;
@@ -212,7 +208,7 @@ namespace Giliberti
             {
                 a.Db = Db;
                 a.AlarmClock = AlarmClock;
-                if (!onlyNotEnded || a.IsEnded())
+                if (!onlyNotEnded || !a.IsEnded())
                     auctionsList.Add(a);
             }
 
@@ -226,7 +222,7 @@ namespace Giliberti
             if (!Db.Sites.Any(s => s.Name == this.Name))
                 throw new InvalidOperationException("the site is already deleted");
 
-            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
+            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s).ToList();
             // disposes the sessions' site and auctions' site
             foreach (var s in sessions)
             {
@@ -234,7 +230,7 @@ namespace Giliberti
                 s.AlarmClock = AlarmClock;
                 s.Logout();
             }
-            var auctions = Db.Auctions.Where(a => a.SiteName == this.Name).Select(a => a);
+            var auctions = Db.Auctions.Where(a => a.SiteName == this.Name).Select(a => a).ToList();
             foreach (var a in auctions)
             {
                 a.Db = Db;
@@ -243,7 +239,8 @@ namespace Giliberti
             }
 
             // disposes the users' site
-            foreach (var u in this.Users)
+            var users = Db.Users.Where(u => u.SiteName == Name).Select(u => u).ToList();
+            foreach (var u in users)
             {
                 u.Db = Db;
                 u.AlarmClock = AlarmClock;

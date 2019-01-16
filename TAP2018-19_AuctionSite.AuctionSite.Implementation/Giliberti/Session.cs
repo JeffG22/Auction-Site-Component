@@ -72,7 +72,7 @@ namespace Giliberti
         public void Logout()
         {
             if (Db == null)
-                throw new UnavailableDbException("State of entity out of context, no data available");
+                throw new InvalidOperationException("State of entity out of context, no data available");
             SiteFactory.ChecksOnDbConnection(Db);
 
             if (!Db.Sessions.Any(s => s.Id == this.Id))

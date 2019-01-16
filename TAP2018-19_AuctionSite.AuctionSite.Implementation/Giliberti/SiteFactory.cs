@@ -16,7 +16,7 @@ namespace Giliberti
     /// </summary>
     public class SiteFactory : ISiteFactory
     {
-        private const int CleanUpTimeInSec = 300;
+        private const int CleanUpTimeInSec = 5*60*1000;
 
         private static bool NotValidConnectionString(string cs)
         {
@@ -170,7 +170,7 @@ namespace Giliberti
             using (var context = new AuctionSiteContext(connectionString))
             {
                 ChecksOnDbConnection(context);
-                var sites = context.Sites.Select(s => s.Name).AsNoTracking();
+                var sites = context.Sites.Select(s => s.Name).ToList();
                 return sites;
             }
         }
