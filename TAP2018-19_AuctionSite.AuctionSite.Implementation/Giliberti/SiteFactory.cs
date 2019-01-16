@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Entity;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
@@ -17,6 +15,7 @@ namespace Giliberti
     public class SiteFactory : ISiteFactory
     {
         private const int CleanUpTimeInSec = 5*60*1000;
+        private Dictionary<string, Site> LoadedSite;
 
         private static bool NotValidConnectionString(string cs)
         {
@@ -74,20 +73,22 @@ namespace Giliberti
             Database.SetInitializer(new DropCreateDatabaseAlways<AuctionSiteContext>());
             try
             {
-                using (var context = new AuctionSiteContext(connectionString))
-                {
+                //using (var context = new AuctionSiteContext(connectionString))
+                var context = new AuctionSiteContext(connectionString);
+                //{
                     context.Database.Create();
                     context.Sites.Create();
                     context.Users.Create();
                     context.Sessions.Create();
                     context.Auctions.Create();
                     context.SaveChanges();
-                }
+                //}
             }
             catch (Exception e)
             {
                 throw new UnavailableDbException("error on DB Setup", e);
             }
+            LoadedSite = new Dictionary<string, Site>();
         }
 
         public void CreateSiteOnDb(string connectionString, string name, int timezone, int sessionExpirationTimeInSeconds,
@@ -102,14 +103,17 @@ namespace Giliberti
                 throw new ArgumentOutOfRangeException();
 
             //creation
-            using (var context = new AuctionSiteContext(connectionString))
-            {
+            //using (var context = new AuctionSiteContext(connectionString))
+            var context = new AuctionSiteContext(connectionString);
+            //{
                 ChecksOnDbConnection(context);
                 if(context.Sites.Any(s => s.Name == name))
                     throw new NameAlreadyInUseException(nameof(name), " of site already in use");
                 context.Sites.Add(new Site(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
                 context.SaveChanges();
-            }
+                if (LoadedSite.ContainsKey(name))
+                    LoadedSite.Remove(name);
+            //}
         }
 
         public ISite LoadSite(string connectionString, string name, IAlarmClock alarmClock)
@@ -123,15 +127,23 @@ namespace Giliberti
             // attempt to Load Site
             var context = new AuctionSiteContext(connectionString);
             ChecksOnDbConnection(context);
+
             var site = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
+
             if (site == null)
                 throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
             if (site.Timezone != alarmClock.Timezone)
                 throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
-            // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
-            site.AlarmClock = alarmClock;
-            site.Db = context; // dispose entrusted to it
+            if (LoadedSite.ContainsKey(site.Name))
+                LoadedSite.TryGetValue(site.Name, out site);
+            else
+            {
+                LoadedSite.Add(site.Name, site);
+                // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
+                site.AlarmClock = alarmClock;
+                site.Db = context; // dispose entrusted to it
+            }
 
             var alarm = alarmClock.InstantiateAlarm(CleanUpTimeInSec);
             var siteName = site.Name;
@@ -179,8 +191,9 @@ namespace Giliberti
         public void MakeCleanUpSessionIfExists(IAlarm alarm, string connectionString, string siteName)
         {
             ChecksOnName(siteName);
-            using (var context = new AuctionSiteContext(connectionString))
-            {
+            //using (var context = new AuctionSiteContext(connectionString))
+            var context = new AuctionSiteContext(connectionString);
+            //{
                 ChecksOnDbConnection(context);
                 var site = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
 
@@ -191,7 +204,7 @@ namespace Giliberti
                     site.Db = context;
                     site.CleanupSessions();
                 }
-            }
+            //}
         }
 
 

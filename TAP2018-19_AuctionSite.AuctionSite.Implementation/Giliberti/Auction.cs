@@ -1,14 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Data.Common;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Win32;
 using TAP2018_19.AlarmClock.Interfaces;
-using TAP2018_19.AuctionSite;
 using TAP2018_19.AuctionSite.Interfaces;
 using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 

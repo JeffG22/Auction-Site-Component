@@ -7,7 +7,6 @@ using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
-    // TODO assegnazione foreign key
     // TODO verifica set
 
     public partial class Site : ISite
