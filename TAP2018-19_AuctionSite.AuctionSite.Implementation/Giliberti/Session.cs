@@ -23,6 +23,12 @@ namespace Giliberti
         [NotMapped] internal IAlarmClock AlarmClock { get; set; }
         [NotMapped] internal AuctionSiteContext Db { get; set; }
 
+        public Session()
+        {
+            Db = null;
+            AlarmClock = null;
+        }
+
         public Session(string id, DateTime validUntil, string username, string siteName )
         {
             Id = id;

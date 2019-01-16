@@ -19,6 +19,12 @@ namespace Giliberti
         [NotMapped] internal IAlarmClock AlarmClock { get; set; }
         [NotMapped] internal AuctionSiteContext Db { get; set; }
 
+        public Auction()
+        {
+            Db = null;
+            AlarmClock = null;
+        }
+
         public Auction(string description, DateTime endsOn, double startingPrice, string username, string siteName)
         {
             this.Description = description;
@@ -84,16 +90,17 @@ namespace Giliberti
             s.Db = Db;
             s.AlarmClock = AlarmClock;
             ChecksOnSession(s);
-            
-            // the bid is valid
-            s.ResetTime(this.Site.SessionExpirationInSeconds);
-            Db.SaveChanges();
 
+            // the bid is valid
             Site siteAuction = null;
             siteAuction = Db.Sites.SingleOrDefault(site => site.Name == s.SiteName);
             if (siteAuction == null)
                 throw new InvalidOperationException("the site does not exist anymore");
             var minimum = siteAuction.MinimumBidIncrement;
+            var time = siteAuction.SessionExpirationInSeconds;
+
+            s.ResetTime(time);
+            Db.SaveChanges();
 
             if (BidIsNotAccepted(s.Username, offer, minimum))
                 return false;

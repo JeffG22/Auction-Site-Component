@@ -20,6 +20,11 @@ namespace Giliberti
         [NotMapped] public IAlarmClock AlarmClock { get; set; }
         [NotMapped] internal AuctionSiteContext Db { set; get; }
 
+        public Site()
+        {
+            this.AlarmClock = null;
+            this.Db = null;
+        }
         public Site(string name, int timezone, int sessionExpirationTimeInSeconds, double minimumBidIncrement)
         {
             this.Name = name;
@@ -128,8 +133,7 @@ namespace Giliberti
                 throw new InvalidOperationException("the site is deleted");
             }
 
-            //var sessions = this.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
-            var sessions = this.Sessions.Select(s => s);
+            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
             foreach (var s in sessions)
             {
                 s.AlarmClock = AlarmClock;
@@ -170,7 +174,7 @@ namespace Giliberti
                 throw new InvalidOperationException("the site is deleted");
             }
 
-            var sessions = this.Sessions.Select(s => s).ToList();
+            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s).ToList();
             foreach (var s in sessions)
             {
                 s.Db = Db;
@@ -210,7 +214,7 @@ namespace Giliberti
                 throw new InvalidOperationException("the site is deleted");
             }
 
-            var auctions = this.Auctions.ToList();
+            var auctions = Db.Auctions.Where(a => a.SiteName == this.Name).Select(a => a).ToList();
                 
             var auctionsList = new List<Auction>();
             foreach (var a in auctions)
@@ -233,14 +237,16 @@ namespace Giliberti
                 throw new InvalidOperationException("the site is already deleted");
             }
 
+            var sessions = Db.Sessions.Where(s => s.SiteName == this.Name).Select(s => s);
             // disposes the sessions' site and auctions' site
-            foreach (var s in this.Sessions)
+            foreach (var s in sessions)
             {
                 s.Db = Db;
                 s.AlarmClock = AlarmClock;
                 s.Logout();
             }
-            foreach (var a in this.Auctions)
+            var auctions = Db.Auctions.Where(a => a.SiteName == this.Name).Select(a => a);
+            foreach (var a in auctions)
             {
                 a.Db = Db;
                 a.AlarmClock = AlarmClock;

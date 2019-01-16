@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.Validation;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
@@ -29,7 +24,7 @@ namespace Giliberti
 
         public AuctionSiteContext(string cs) : base(cs)
         {
-            this.Cs = cs;
+            Cs = cs;
         }
 
         protected override void OnModelCreating(DbModelBuilder builder)
@@ -60,17 +55,17 @@ namespace Giliberti
             }
             catch (DbUpdateException error)
             {
-                var sqlException = error.GetBaseException() as SqlException; // è un'eccezione SQL?
+                var sqlException = error.GetBaseException() as SqlException;
 
-                if (sqlException != null)
-                    if (sqlException.ErrorCode == SqlPrimaryKeyConstraint)
-                        throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated primary key", error);
-                    else if (sqlException.ErrorCode == SqlUniqueConstraint)
-                        throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated unique index", error);
-                    else
-                        throw new UnavailableDbException("sqlException occurred sending updates to the database", error);
+                if (sqlException == null)
+                    throw new UnavailableDbException("Failure to persist or retrieve data to/from DB", error);
+                if (sqlException.ErrorCode == SqlPrimaryKeyConstraint)
+                    throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated primary key", error);
+                else if (sqlException.ErrorCode == SqlUniqueConstraint)
+                    throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated unique index", error);
+                else
+                    throw new UnavailableDbException("sqlException occurred sending updates to the database", error);
 
-                throw new UnavailableDbException("Failure to persist or retrieve data to/from DB", error);
             }
         }
 

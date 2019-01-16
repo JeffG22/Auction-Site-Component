@@ -19,6 +19,12 @@ namespace Giliberti
         [NotMapped] internal IAlarmClock AlarmClock { get; set; }
         [NotMapped] internal AuctionSiteContext Db { get; set; }
 
+        public User()
+        {
+            Db = null;
+            AlarmClock = null;
+        }
+
         public User(string username, string password, string name)
         {
             this.Username = username;
