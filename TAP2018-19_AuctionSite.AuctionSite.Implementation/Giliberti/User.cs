@@ -107,8 +107,6 @@ namespace Giliberti
             // the user is removed and the Db and AlarmClock must be null
             Db.Users.Remove(this);
             Db.SaveChanges();
-            Db = null;
-            AlarmClock = null;
 
         }
     }

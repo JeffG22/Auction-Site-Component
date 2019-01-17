@@ -143,8 +143,6 @@ namespace Giliberti
 
             Db.Auctions.Remove(this);
             Db.SaveChanges();
-            Db = null;
-            AlarmClock = null;
         }
 
     }

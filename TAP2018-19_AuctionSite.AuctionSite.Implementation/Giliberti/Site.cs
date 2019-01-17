@@ -240,8 +240,6 @@ namespace Giliberti
 
             Db.Sites.Remove(this);
             Db.SaveChanges();
-            AlarmClock = null;
-            Db = null;
         }
     }
 }

@@ -44,8 +44,9 @@ namespace Giliberti
             // controllo che sia correttamente creata e presente sul DB
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sessions.Any(s => s.Id == Id))
-                throw new InvalidOperationException(nameof(Session)+" not consistent");
+            var me = Db.Sessions.SingleOrDefault(s => s.Id == Id);
+            if (null == me) // sessione cancellata, logout effettuato
+                return false;
 
             return ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
@@ -61,8 +62,6 @@ namespace Giliberti
 
             Db.Sessions.Remove(this);
             Db.SaveChanges();
-            Db = null;
-            AlarmClock = null;
         }
 
         public IAuction CreateAuction(string description, DateTime endsOn, double startingPrice)
