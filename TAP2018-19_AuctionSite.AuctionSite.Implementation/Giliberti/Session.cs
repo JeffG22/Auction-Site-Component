@@ -44,22 +44,10 @@ namespace Giliberti
             // controllo che sia correttamente creata e presente sul DB
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sessions.Any(s => s.Id == this.Id))
+            if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session)+" not consistent");
 
             return ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
-        }
-
-        public bool IsValid(DateTime timeClock)
-        {
-            // controllo che sia correttamente creata e presente sul DB
-            if (Db == null)
-                throw new InvalidOperationException("It was not possible to reach the Db, context disposed");
-            SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sessions.Any(s => s.Id == this.Id))
-                throw new InvalidOperationException(nameof(Session) + " not consistent");
-
-            return ValidUntil.CompareTo(timeClock) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
 
         public void Logout()
@@ -68,7 +56,7 @@ namespace Giliberti
                 throw new InvalidOperationException("State of entity out of context, no data available");
             SiteFactory.ChecksOnDbConnection(Db);
 
-            if (!Db.Sessions.Any(s => s.Id == this.Id))
+            if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
             ValidUntil = DateTime.Now.ToUniversalTime().AddHours(-24); // Expired
@@ -91,23 +79,23 @@ namespace Giliberti
                 throw new ArgumentOutOfRangeException(nameof(startingPrice), "is negative");
             if (endsOn.CompareTo(AlarmClock.Now) < 0)
                 throw new UnavailableTimeMachineException("endsOn precedes the current ISite's time");
-            if (!Db.Sessions.Any(s => s.Id == this.Id))
+            if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
-            Site siteSession = null;
-            siteSession = Db.Sites.SingleOrDefault(site => site.Name == this.SiteName);
+            Site siteSession;
+            siteSession = Db.Sites.SingleOrDefault(site => site.Name == SiteName);
             if (siteSession == null)
                 throw new InvalidOperationException("the site does not exist anymore");
-            User seller = null;
-            seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == this.Username);
+            User seller;
+            seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == Username);
             if (seller == null)
                 throw new InvalidOperationException("the user does not exist anymore");
 
             var time = siteSession.SessionExpirationInSeconds;
             var auction =
-                new Auction(description, endsOn, startingPrice, this.Username, this.SiteName) {Seller = seller};
+                new Auction(description, endsOn, startingPrice, Username, SiteName) {Seller = seller};
             Db.Auctions.Add(auction);
-            this.ResetTime(time);
+            ResetTime(time);
             Db.SaveChanges();
 
             auction.Db = Db;

@@ -10,7 +10,7 @@ namespace Giliberti
     public class AuctionSiteContext : DbContext
     {
         // connection string per evitare riferimenti in IAlarm al contesto, ne viene passata una copia ai metodi anonimi
-        internal readonly string Cs;
+        //internal readonly string Cs;
 
         // codici SqlError
         private const int SqlPrimaryKeyConstraint = 2627; // violation of primary key constraint
@@ -24,16 +24,11 @@ namespace Giliberti
 
         public AuctionSiteContext(string cs) : base(cs)
         {
-            Cs = cs;
+            //Cs = cs;
         }
 
         protected override void OnModelCreating(DbModelBuilder builder)
         {
-            // TODO capire come funziona e se ho qualcosa da fare, se cancello un commento non cancello la segnalazione o viceversa?
-            // builder.Entity<Commento>().HasRequired(p => p.Segnalazione).WithMany(b => b.Commentos).WillCascadeOnDelete(false);
-            // TODO vedere fluent API
-            // TODO gestire i cascade e update del database
-            // TODO le cose per gestire la concorrenza tipo IsRowVersion e Concurrency Token
 
         }
 
@@ -43,10 +38,8 @@ namespace Giliberti
             {
                 return base.SaveChanges();
             }
-            // TODO se volessi recuperare lo stato http://www.binaryintellect.net/articles/c1bff938-1789-4501-8161-3f38bc465a8b.aspx
             catch (DbUpdateConcurrencyException error)
             {
-                // considerare di vedere quali entità hanno creato problemi con Entries o visto che passo error sarebbe una ripetizione
                 throw new ConcurrentChangeException("Attempt to update an entity which has been concurrently modified", error);
             }
             catch (DbEntityValidationException error)
@@ -55,17 +48,17 @@ namespace Giliberti
             }
             catch (DbUpdateException error)
             {
-                var sqlException = error.GetBaseException() as SqlException;
-
-                if (sqlException == null)
+                if (!(error.GetBaseException() is SqlException sqlException))
                     throw new UnavailableDbException("Failure to persist or retrieve data to/from DB", error);
-                if (sqlException.Number == SqlPrimaryKeyConstraint)
-                    throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated primary key", error);
-                else if (sqlException.Number == SqlUniqueConstraint)
-                    throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated unique index", error);
-                else
-                    throw new UnavailableDbException("sqlException occurred sending updates to the database", error);
-
+                switch (sqlException.Number)
+                {
+                    case SqlPrimaryKeyConstraint:
+                        throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated primary key", error);
+                    case SqlUniqueConstraint:
+                        throw new NameAlreadyInUseException(error.Entries.ToString(), "Attempt to insert a duplicated unique index", error);
+                    default:
+                        throw new UnavailableDbException("sqlException occurred sending updates to the database", error);
+                }
             }
         }
 

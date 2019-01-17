@@ -15,7 +15,7 @@ namespace Giliberti
     public class SiteFactory : ISiteFactory
     {
         private const int CleanUpTimeInSec = 5*60*1000;
-        private Dictionary<string, Site> LoadedSite;
+        private Dictionary<string, Site> _loadedSite;
 
         private static bool NotValidConnectionString(string cs)
         {
@@ -41,7 +41,6 @@ namespace Giliberti
         internal static void ChecksOnContextAndClock(AuctionSiteContext db, IAlarmClock alarmClock)
         {
             if (db == null || alarmClock == null)
-                // throw new UnavailableDbException("State of entity out of context, no data available"); BUG IOE expected
                 throw new InvalidOperationException("State of entity out of context, no data available");
         }
 
@@ -73,22 +72,21 @@ namespace Giliberti
             Database.SetInitializer(new DropCreateDatabaseAlways<AuctionSiteContext>());
             try
             {
-                //using (var context = new AuctionSiteContext(connectionString))
-                var context = new AuctionSiteContext(connectionString);
-                //{
+                using (var context = new AuctionSiteContext(connectionString))
+                {
                     context.Database.Create();
                     context.Sites.Create();
                     context.Users.Create();
                     context.Sessions.Create();
                     context.Auctions.Create();
                     context.SaveChanges();
-                //}
+                }
             }
             catch (Exception e)
             {
                 throw new UnavailableDbException("error on DB Setup", e);
             }
-            LoadedSite = new Dictionary<string, Site>();
+            _loadedSite = new Dictionary<string, Site>();
         }
 
         public void CreateSiteOnDb(string connectionString, string name, int timezone, int sessionExpirationTimeInSeconds,
@@ -103,17 +101,16 @@ namespace Giliberti
                 throw new ArgumentOutOfRangeException();
 
             //creation
-            //using (var context = new AuctionSiteContext(connectionString))
-            var context = new AuctionSiteContext(connectionString);
-            //{
+            using (var context = new AuctionSiteContext(connectionString))
+            {
                 ChecksOnDbConnection(context);
                 if(context.Sites.Any(s => s.Name == name))
                     throw new NameAlreadyInUseException(nameof(name), " of site already in use");
                 context.Sites.Add(new Site(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
                 context.SaveChanges();
-                if (LoadedSite.ContainsKey(name))
-                    LoadedSite.Remove(name);
-            //}
+                if (_loadedSite.ContainsKey(name))
+                    _loadedSite.Remove(name);
+            }
         }
 
         public ISite LoadSite(string connectionString, string name, IAlarmClock alarmClock)
@@ -127,7 +124,6 @@ namespace Giliberti
             // attempt to Load Site
             var context = new AuctionSiteContext(connectionString);
             ChecksOnDbConnection(context);
-
             var site = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
 
             if (site == null)
@@ -135,11 +131,15 @@ namespace Giliberti
             if (site.Timezone != alarmClock.Timezone)
                 throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
-            if (LoadedSite.ContainsKey(site.Name))
-                LoadedSite.TryGetValue(site.Name, out site);
+            if (_loadedSite.ContainsKey(site.Name))
+            {
+                _loadedSite.TryGetValue(site.Name, out site);
+                if (site == null)
+                    throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
+            }
             else
             {
-                LoadedSite.Add(site.Name, site);
+                _loadedSite.Add(site.Name, site);
                 // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
                 site.AlarmClock = alarmClock;
                 site.Db = context; // dispose entrusted to it
@@ -148,7 +148,7 @@ namespace Giliberti
             var alarm = alarmClock.InstantiateAlarm(CleanUpTimeInSec);
             var siteName = site.Name;
             // metodo anonimo con due riferimenti per evitare di mantenere contesto aperto
-            alarm.RingingEvent += delegate() { this.MakeCleanUpSessionIfExists(alarm, connectionString, siteName); }; 
+            alarm.RingingEvent += delegate { MakeCleanUpSessionIfExists(alarmClock, alarm, context, siteName); }; 
 
             return site;
         }
@@ -187,26 +187,21 @@ namespace Giliberti
             }
         }
 
-        // TODO provare internal dopo
-        public void MakeCleanUpSessionIfExists(IAlarm alarm, string connectionString, string siteName)
+        internal void MakeCleanUpSessionIfExists(IAlarmClock alarmClock, IAlarm alarm, AuctionSiteContext context, string siteName)
         {
             ChecksOnName(siteName);
-            //using (var context = new AuctionSiteContext(connectionString))
-            var context = new AuctionSiteContext(connectionString);
-            //{
-                ChecksOnDbConnection(context);
-                var site = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
+            ChecksOnDbConnection(context);
+            var site = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
 
-                if (site == null)
-                    alarm.Dispose(); // prova a vedere se ci sono problemi
-                else
-                {
-                    site.Db = context;
-                    site.CleanupSessions();
-                }
-            //}
+            if (site == null)
+                alarm.Dispose(); // prova a vedere se ci sono problemi
+            else
+            {
+                site.Db = context;
+                site.AlarmClock = alarmClock;
+                site.CleanupSessions();
+            }
         }
-
 
     }
 }

@@ -8,6 +8,8 @@ using TAP2018_19.AuctionSite.Interfaces;
 namespace Giliberti
 {
     // TODO verifica set
+    // TODO le cose per gestire la concorrenza tipo IsRowVersion e Concurrency Token
+
 
     public partial class Site : ISite
     {

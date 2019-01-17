@@ -24,11 +24,11 @@ namespace Giliberti
 
         public User(string username, string password, string name)
         {
-            this.Username = username;
-            this.Password = password;
-            this.SiteName = name;
-            this.AlarmClock = null;
-            this.Db = null;
+            Username = username;
+            Password = password;
+            SiteName = name;
+            AlarmClock = null;
+            Db = null;
         }
         internal static bool NotValidUsername(string username)
         {
@@ -43,10 +43,10 @@ namespace Giliberti
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Users.Any(u => u.Username == this.Username && u.SiteName == this.SiteName))
+            if (!Db.Users.Any(u => u.Username == Username && u.SiteName == SiteName))
                 throw new InvalidOperationException("the user does not exist anymore");
 
-            var auctions = Db.Auctions.Where(a => a.SiteName == this.SiteName && a.WinnerUsername == this.Username)
+            var auctions = Db.Auctions.Where(a => a.SiteName == SiteName && a.WinnerUsername == Username)
                 .Select(a => a).ToList();
             var auctionList = new List<Auction>();
 
@@ -65,12 +65,12 @@ namespace Giliberti
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Users.Any(u => u.Username == this.Username && u.SiteName == this.SiteName))
+            if (!Db.Users.Any(u => u.Username == Username && u.SiteName == SiteName))
                 throw new InvalidOperationException("the user does not exist anymore");
 
             // owner of auctions not ended yet, winner of auctions not ended yet -> IOE exception
-            var anySellerAuctions = Db.Auctions.Where(a => a.SellerUsername == this.Username && a.SiteName == this.SiteName);
-            var anyWinnerAuctions = Db.Auctions.Where(a => a.WinnerUsername == this.Username && a.SiteName == this.SiteName);
+            var anySellerAuctions = Db.Auctions.Where(a => a.SellerUsername == Username && a.SiteName == SiteName);
+            var anyWinnerAuctions = Db.Auctions.Where(a => a.WinnerUsername == Username && a.SiteName == SiteName);
             var deletable = true;
             foreach (var a in anySellerAuctions)
             {
