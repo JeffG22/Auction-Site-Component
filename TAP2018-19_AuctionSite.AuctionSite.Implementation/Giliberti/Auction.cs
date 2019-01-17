@@ -27,6 +27,8 @@ namespace Giliberti
             CurrentPrice = startingPrice;
             HighestPrice = startingPrice;
             WinnerUsername = null;
+            Db = null;
+            AlarmClock = null;
         }
 
         internal bool IsEnded()
@@ -84,8 +86,7 @@ namespace Giliberti
             ChecksOnSession(s);
 
             // the bid is valid
-            Site siteAuction = null;
-            siteAuction = Db.Sites.SingleOrDefault(site => site.Name == s.SiteName);
+            var siteAuction = Db.Sites.SingleOrDefault(site => site.Name == s.SiteName);
             if (siteAuction == null)
                 throw new InvalidOperationException("the site does not exist anymore");
             var minimum = siteAuction.MinimumBidIncrement;
@@ -105,16 +106,9 @@ namespace Giliberti
                     CurrentPrice = offer < HighestPrice + minimum ? offer : HighestPrice + minimum;
 
                 HighestPrice = offer;
-                SiteNameWinner = s.SiteName;
                 WinnerUsername = s.Username;
-                try
-                {
-                    Winner = Db.Users.Single(u => u.Username == WinnerUsername && u.SiteName == SiteName);
-                }
-                catch (ArgumentNullException e)
-                {
-                    throw new InvalidOperationException("the user does not exist anymore", e);
-                }
+                if (!Db.Users.Any(u => u.Username == WinnerUsername && u.SiteName == SiteName))
+                    throw new InvalidOperationException("the user does not exist anymore");
             }
             FirstBid = false;
             Db.SaveChanges();
@@ -133,11 +127,11 @@ namespace Giliberti
             if (!Db.Auctions.Any(a => a.Id == Id && a.SiteName == SiteName))
                 throw new InvalidOperationException("the auction does not exist anymore");
 
-            if (null == Winner)
+            if (null == WinnerUsername)
                 return null;
-            if (!Db.Users.Any(u => u.Username == WinnerUsername && u.SiteName == SiteName)) // winner has been deleted
-                return null;
-            return Winner;
+
+            var user = Db.Users.SingleOrDefault(u => u.Username == WinnerUsername && u.SiteName == SiteName);
+            return null == user ? null : user;
         }
 
         public void Delete()

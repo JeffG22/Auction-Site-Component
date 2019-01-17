@@ -34,7 +34,7 @@ namespace Giliberti
         internal void ResetTime(int seconds)
         {
             if (AlarmClock == null)
-                throw new UnavailableDbException("State of entity out of context, no data available");
+                throw new InvalidOperationException("State of entity out of context, no data available");
             ValidUntil = AlarmClock.Now.AddSeconds(seconds);
         }
         
@@ -59,7 +59,6 @@ namespace Giliberti
             if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
-            ValidUntil = DateTime.Now.ToUniversalTime().AddHours(-24); // Expired
             Db.Sessions.Remove(this);
             Db.SaveChanges();
             Db = null;
@@ -82,12 +81,10 @@ namespace Giliberti
             if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
-            Site siteSession;
-            siteSession = Db.Sites.SingleOrDefault(site => site.Name == SiteName);
+            var siteSession = Db.Sites.SingleOrDefault(site => site.Name == SiteName);
             if (siteSession == null)
                 throw new InvalidOperationException("the site does not exist anymore");
-            User seller;
-            seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == Username);
+            var seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == Username);
             if (seller == null)
                 throw new InvalidOperationException("the user does not exist anymore");
 

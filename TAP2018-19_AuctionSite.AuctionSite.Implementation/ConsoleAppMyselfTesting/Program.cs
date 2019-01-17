@@ -14,6 +14,7 @@ namespace ConsoleAppMyselfTesting
             var sf = new SiteFactory();
             sf.Setup(
                 "Data Source=.\\SQLEXPRESS;Initial Catalog=GilibertiDb;Integrated Security=True;MultipleActiveResultSets=True;");
+            Console.Read();
         }
     }
 }

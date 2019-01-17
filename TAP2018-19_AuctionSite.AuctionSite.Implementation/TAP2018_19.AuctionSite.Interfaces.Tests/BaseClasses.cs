@@ -15,7 +15,7 @@ namespace TAP2018_19.TestBaseClasses {
         // @"..\..\..\NAME OF YOUR IMPLEMENTATION PROJECT FOLDER\bin\Debug\NAME OF YOUR IMPLEMENTATION PROJECT LIBRARY";
 
         internal const string ConnectionString =
-            @"Data Source=.\SQLEXPRESS;Initial Catalog=Giliberti;Integrated Security=True;"; // TODO non manca la multiple? ;MultipleActiveResultSets=True
+            @"Data Source=.\SQLEXPRESS;Initial Catalog=Giliberti;Integrated Security=True;"; // MultipleActiveResultSets=True;
         // @"Data Source=.\SQLEXPRESS;Initial Catalog=ANY NAME YOU LIKE;Integrated Security=True;";
     }
 

@@ -7,9 +7,9 @@ using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
-    // TODO verifica set
+    // TODO hashing password
+    // TODO gestione highest price
     // TODO le cose per gestire la concorrenza tipo IsRowVersion e Concurrency Token
-
 
     public partial class Site : ISite
     {
@@ -34,14 +34,14 @@ namespace Giliberti
         [MinLength(DomainConstraints.MinUserName), MaxLength(DomainConstraints.MaxUserName)]
         public string Username { set; get; }
         [MinLength(DomainConstraints.MinUserPassword)] // no MaxLenght per hashing
-        public string Password { set; get; } // TODO gestione hashing, set e get
+        public string Password { set; get; }
 
         // foreign key
         [Key, ForeignKey("Site"), Column(Order = 0)]
         public string SiteName { set; get; }
 
         // navigation properties
-        /*[ForeignKey("SiteName")]*/ public virtual Site Site { set; get; }
+        public virtual Site Site { set; get; }
         public virtual ICollection<Session> Sessions { set; get; }
         // Auction associate, necessario join esplicito per capire seller/winner
         public virtual ICollection<Auction> Auctions { set; get; } 
@@ -91,6 +91,7 @@ namespace Giliberti
         public bool FirstBid { set; get; }
         public double CurrentPrice { set; get; }
         public double HighestPrice { set; get; }
+        public string WinnerUsername { set; get; }
 
         // Foreign Key
         [Key, Column(Order = 0), ForeignKey("Seller")]
@@ -100,14 +101,10 @@ namespace Giliberti
         public string SellerUsername { set; get; }
 
 
-        [Column(Order = 3), ForeignKey("Winner")]
-        public string SiteNameWinner { set; get; }
-        [Column(Order = 4), ForeignKey("Winner")]
-        public string WinnerUsername { set; get; }
+
 
         // Navigation properties
         public virtual User Seller { set; get; }
-        public virtual User Winner { set; get; } // da determinare successivamente
 
         IUser IAuction.Seller
         {

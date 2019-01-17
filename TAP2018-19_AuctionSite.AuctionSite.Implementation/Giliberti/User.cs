@@ -87,7 +87,7 @@ namespace Giliberti
                 a.Db = Db;
                 a.AlarmClock = AlarmClock;
                 if (a.IsEnded()) continue;
-                deletable = true;
+                deletable = false;
                 break;
             }
             if (!deletable)
@@ -98,10 +98,7 @@ namespace Giliberti
                 a.Delete();
 
             foreach (var a in anySellerAuctions)
-            {
                 a.WinnerUsername = null;
-                a.Winner = null;
-            }
 
             var sessions = Db.Sessions.Where(s => s.SiteName == SiteName && s.Username == Username).Select(s => s);
             foreach (var s in sessions)
