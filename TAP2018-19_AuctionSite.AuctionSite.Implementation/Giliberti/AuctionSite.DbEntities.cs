@@ -26,6 +26,10 @@ namespace Giliberti
         // navigation properties
         public virtual ICollection<UserEntity> Users { set; get; }
 
+        // concurrency
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
+
         // constructors
         public SiteEntity()
         {
@@ -58,6 +62,10 @@ namespace Giliberti
         // Auction associate, necessario join esplicito per capire seller/winner
         public virtual ICollection<AuctionEntity> Auctions { set; get; }
 
+        // concurrency
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
+
         // constructors
         public UserEntity()
         {
@@ -86,6 +94,10 @@ namespace Giliberti
 
         // navigation properties
         public virtual UserEntity User { set; get; }
+
+        // concurrency
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
 
         // constructors
         public SessionEntity()
@@ -126,6 +138,10 @@ namespace Giliberti
 
         // Navigation properties
         public virtual UserEntity Seller { set; get; }
+
+        // concurrency
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
 
         // constructors
         public AuctionEntity()

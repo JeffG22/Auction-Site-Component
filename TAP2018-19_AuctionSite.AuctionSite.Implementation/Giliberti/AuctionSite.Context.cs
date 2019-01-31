@@ -3,14 +3,13 @@ using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.Validation;
 using System.Data.SqlClient;
+using System.Linq;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
     public class AuctionSiteContext : DbContext
     {
-        // connection string per evitare riferimenti in IAlarm al contesto, ne viene passata una copia ai metodi anonimi
-        //internal readonly string Cs;
 
         // codici SqlError
         private const int SqlPrimaryKeyConstraint = 2627; // violation of primary key constraint
@@ -28,7 +27,10 @@ namespace Giliberti
 
         protected override void OnModelCreating(DbModelBuilder builder)
         {
-
+            builder.Entity<SiteEntity>().Property(p => p.RowVersion).IsRowVersion();
+            builder.Entity<UserEntity>().Property(p => p.RowVersion).IsRowVersion();
+            builder.Entity<AuctionEntity>().Property(p => p.RowVersion).IsRowVersion();
+            builder.Entity<SessionEntity>().Property(p => p.RowVersion).IsRowVersion();
         }
 
         public override int SaveChanges()
@@ -39,6 +41,8 @@ namespace Giliberti
             }
             catch (DbUpdateConcurrencyException error)
             {
+                Console.WriteLine("entity: "+error.Entries.First().Entity);
+                Console.WriteLine("value: "+error.Entries.First().CurrentValues);
                 throw new ConcurrentChangeException("Attempt to update an entity which has been concurrently modified", error);
             }
             catch (DbEntityValidationException error)

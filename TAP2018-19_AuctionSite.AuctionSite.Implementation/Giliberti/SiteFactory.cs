@@ -43,10 +43,15 @@ namespace Giliberti
                 throw new ArgumentException("It is strictly larger or smaller than the constraint", nameof(name));
         }
 
-        // to allow the query and the methods there have to be a valid context and alarmclock for each existing object returned to the client
+        // to allow the query and the methods there have to be a valid context / connectionstring and alarmclock for each existing object returned to the client
         internal static void ChecksOnContextAndClock(AuctionSiteContext db, IAlarmClock alarmClock)
         {
             if (db == null || alarmClock == null)
+                throw new InvalidOperationException("State of entity out of context, no data available");
+        }
+        internal static void ChecksOnCsAndClock(string cs, IAlarmClock alarmClock)
+        {
+            if (cs == null || alarmClock == null)
                 throw new InvalidOperationException("State of entity out of context, no data available");
         }
 
@@ -128,25 +133,28 @@ namespace Giliberti
                 throw new ArgumentNullException(nameof(alarmClock), " is null");
 
             // attempt to Load Site
-            var context = new AuctionSiteContext(connectionString);
-            ChecksOnDbConnection(context);
-            var siteEntity = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
+            using (var context = new AuctionSiteContext(connectionString))
+            {
+                ChecksOnDbConnection(context);
+                var siteEntity = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
 
-            if (siteEntity == null)
-                throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
-            if (siteEntity.Timezone != alarmClock.Timezone)
-                throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
+                if (siteEntity == null)
+                    throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
+                if (siteEntity.Timezone != alarmClock.Timezone)
+                    throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
-            // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
-            var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
-                siteEntity.MinimumBidIncrement) {AlarmClock = alarmClock, Db = context};
+                // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
+                var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
+                        siteEntity.MinimumBidIncrement)
+                    { AlarmClock = alarmClock, Cs = connectionString };
 
-            var alarm = alarmClock.InstantiateAlarm(CleanUpTime);
-            var siteName = site.Name;
-            // metodo anonimo con due riferimenti per evitare di mantenere contesto aperto
-            alarm.RingingEvent += delegate { MakeCleanUpSessionIfExists(alarmClock, alarm, context, siteName); }; 
+                var alarm = alarmClock.InstantiateAlarm(CleanUpTime);
+                var siteName = site.Name;
+                // metodo anonimo con due riferimenti per evitare di mantenere contesto aperto
+                alarm.RingingEvent += delegate { MakeCleanUpSessionIfExists(alarmClock, alarm, connectionString, siteName); };
 
-            return site;
+                return site;
+            }
         }
 
         public int GetTheTimezoneOf(string connectionString, string name)
@@ -184,19 +192,23 @@ namespace Giliberti
         }
 
         // auxiliary function to invoke cleanUpSessions with all the args necessary
-        internal void MakeCleanUpSessionIfExists(IAlarmClock alarmClock, IAlarm alarm, AuctionSiteContext context, string siteName)
+        internal void MakeCleanUpSessionIfExists(IAlarmClock alarmClock, IAlarm alarm, string cs, string siteName)
         {
             ChecksOnName(siteName);
-            ChecksOnDbConnection(context);
-            var siteEntity = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
-
-            if (siteEntity == null)
-                alarm.Dispose(); // prova a vedere se ci sono problemi
-            else
+            using (var context = new AuctionSiteContext(cs))
             {
-                var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
-                    siteEntity.MinimumBidIncrement) {Db = context, AlarmClock = alarmClock};
-                site.CleanupSessions();
+                ChecksOnDbConnection(context);
+                var siteEntity = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
+
+                if (siteEntity == null)
+                    alarm.Dispose(); // prova a vedere se ci sono problemi
+                else
+                {
+                    var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
+                            siteEntity.MinimumBidIncrement)
+                        { Cs = cs, AlarmClock = alarmClock };
+                    site.CleanupSessions();
+                }
             }
         }
 

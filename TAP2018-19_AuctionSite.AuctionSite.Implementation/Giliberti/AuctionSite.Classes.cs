@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Linq;
-using NUnit.Framework.Constraints;
 using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
     /**
-     * File which includes DB Schema
+     * File with the declarations of the logical classes to represent the permanent object on the db
      */
 
     public partial class Site : ISite
@@ -19,7 +18,7 @@ namespace Giliberti
         public int SessionExpirationInSeconds { get; }
 
         internal IAlarmClock AlarmClock { get; set; }
-        internal AuctionSiteContext Db { set; get; }
+        internal string Cs { set; get; }
 
         // constructors
         public Site(string name, int timezone, int sessionExpirationTimeInSeconds, double minimumBidIncrement)
@@ -29,7 +28,7 @@ namespace Giliberti
             SessionExpirationInSeconds = sessionExpirationTimeInSeconds;
             MinimumBidIncrement = minimumBidIncrement;
             AlarmClock = null;
-            Db = null;
+            Cs = null;
         }
 
         // ovverride di Equals, GetHashCode, == e !=
@@ -66,14 +65,14 @@ namespace Giliberti
         public string Username { get; }
         public string SiteName { get; } // attributo aggiuntivo per equals
         internal IAlarmClock AlarmClock { get; set; }
-        internal AuctionSiteContext Db { get; set; }
+        internal string Cs { get; set; }
 
         public User(string username, string siteName)
         {
             Username = username;
             SiteName = siteName;
             AlarmClock = null;
-            Db = null;
+            Cs = null;
         }
 
         // ovverride di Equals, GetHashCode, == e !=
@@ -113,21 +112,24 @@ namespace Giliberti
         {
             get
             {
-                if (Db == null)
+                if (Cs == null)
                     throw new UnavailableDbException("State of entity out of context, no data available");
-                SiteFactory.ChecksOnDbConnection(Db);
-                var thisEntity = Db.Sessions.FirstOrDefault(s => s.Id == Id);
-                if (null == thisEntity)
+                using (var Db = new AuctionSiteContext(Cs))
+                {
+                    SiteFactory.ChecksOnDbConnection(Db);
+                    var thisEntity = Db.Sessions.FirstOrDefault(s => s.Id == Id);
+                    if (null == thisEntity)
                         throw new InvalidOperationException(nameof(SessionEntity) + " not consistent");
 
-                return new User(thisEntity.Username, thisEntity.SiteName) { Db = Db, AlarmClock = AlarmClock };
+                    return new User(thisEntity.Username, thisEntity.SiteName) { Cs = Cs, AlarmClock = AlarmClock };
+                }
             }
         }
         public string SiteName { get; } // aggiuntivo per evitare query ulteriori
         public string Username { get; } // aggiuntivo per evitare query ulteriori
 
         internal IAlarmClock AlarmClock { get; set; }
-        internal AuctionSiteContext Db { get; set; }
+        internal string Cs { get; set; }
 
         public Session(DateTime validUntil, string username, string siteName)
         {
@@ -136,7 +138,7 @@ namespace Giliberti
             Username = username;
             ValidUntil = validUntil;
             AlarmClock = null;
-            Db = null;
+            Cs = null;
         }
 
         // ovverride di Equals, GetHashCode, == e !=
@@ -178,18 +180,21 @@ namespace Giliberti
         {
             get
             {
-                if (Db == null)
+                if (Cs == null)
                     throw new UnavailableDbException("State of entity out of context, no data available");
-                SiteFactory.ChecksOnDbConnection(Db);
-                var thisEntity = Db.Auctions.FirstOrDefault(a => a.Id == Id && a.SiteName == SiteName);
-                if (null == thisEntity)
-                    throw new InvalidOperationException(nameof(AuctionEntity) + " does not exist anymore");
-               return new User(thisEntity.Seller.Username, thisEntity.Seller.SiteName) { Db = Db, AlarmClock = AlarmClock };
+                using (var Db = new AuctionSiteContext(Cs))
+                {
+                    SiteFactory.ChecksOnDbConnection(Db);
+                    var thisEntity = Db.Auctions.FirstOrDefault(a => a.Id == Id && a.SiteName == SiteName);
+                    if (null == thisEntity)
+                        throw new InvalidOperationException(nameof(AuctionEntity) + " does not exist anymore");
+                    return new User(thisEntity.Seller.Username, thisEntity.Seller.SiteName) { Cs = Cs, AlarmClock = AlarmClock };
+                }
             }
         }
 
         internal IAlarmClock AlarmClock { get; set; }
-        internal AuctionSiteContext Db { get; set; }
+        internal string Cs { get; set; }
 
         public Auction(int id, string description, DateTime endsOn, string siteName)
         {
@@ -197,7 +202,7 @@ namespace Giliberti
             Description = description;
             EndsOn = endsOn;
             SiteName = siteName;
-            Db = null;
+            Cs = null;
             AlarmClock = null;
         }
 
