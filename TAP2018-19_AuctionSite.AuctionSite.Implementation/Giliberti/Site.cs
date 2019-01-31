@@ -13,24 +13,6 @@ namespace Giliberti
     /// </summary>
     public partial class Site
     {
-        [NotMapped] public IAlarmClock AlarmClock { get; set; }
-        [NotMapped] internal AuctionSiteContext Db { set; get; }
-
-        // constructors
-        public Site()
-        {
-            AlarmClock = null;
-            Db = null;
-        }
-        public Site(string name, int timezone, int sessionExpirationTimeInSeconds, double minimumBidIncrement)
-        {
-            Name = name;
-            Timezone = timezone;
-            SessionExpirationInSeconds = sessionExpirationTimeInSeconds;
-            MinimumBidIncrement = minimumBidIncrement;
-            AlarmClock = null;
-            Db = null;
-        }
 
         // contraints
         internal static bool NotValidName(string name)
@@ -68,12 +50,13 @@ namespace Giliberti
             if(Db == null)
                 throw new InvalidOperationException("It was not possible to reach the Db");
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sites.Any(s => s.Name == Name))
+            var siteEntity = Db.Sites.FirstOrDefault(s => s.Name == Name);
+            if (null == siteEntity)
                 throw new InvalidOperationException("the site is deleted");
             if (Db.Users.Any(u => u.Username == username && u.SiteName == Name))
                 throw new NameAlreadyInUseException(nameof(username), " of user already in use");
 
-            Db.Users.Add(new User(username, password, Name){Site = this});
+            Db.Users.Add(new UserEntity(username, password, Name){Site = siteEntity});
             Db.SaveChanges();
         }
 
@@ -84,31 +67,28 @@ namespace Giliberti
             SiteFactory.ChecksOnDbConnection(Db);
             if (!Db.Sites.Any(s => s.Name == Name))
                 throw new InvalidOperationException("the site is deleted");
-            if (!Db.Users.Any(u => (u.Username == username && u.Password == password && u.SiteName == Name))) // l'utente non esiste o dati sbagliati
+            var userEntity = Db.Users.SingleOrDefault(u => u.Username == username && u.Password == password && u.SiteName == Name);
+            if (null == userEntity) // l'utente non esiste o dati sbagliati
                 return null;
 
-            var session = Db.Sessions.SingleOrDefault(s => s.Id == Name + username);
+            var sessionEntity = Db.Sessions.SingleOrDefault(s => s.Id == Name + username);
+            var session = new Session(AlarmClock.Now.AddSeconds(SessionExpirationInSeconds), username, Name)
+            {
+                AlarmClock = AlarmClock,
+                Db = Db
+            };
 
-            if (session == null ) // l'utente esiste e non ha una sessione attiva
+            if (sessionEntity == null) // l'utente esiste e non ha una sessione attiva
             {
                 // new session
-                var user = Db.Users.SingleOrDefault(us => us.Username == username && us.SiteName == Name);
-                if (null == user) throw new InvalidOperationException("user not found");
-                session = new Session(AlarmClock.Now.AddSeconds(SessionExpirationInSeconds), username, Name)
+                sessionEntity = new SessionEntity(AlarmClock.Now.AddSeconds(SessionExpirationInSeconds), username, Name)
                 {
-                    User = user
+                    User = userEntity
                 };
-                Db.Sessions.Add(session);
-                session.AlarmClock = AlarmClock;
-                session.Db = Db;
+                Db.Sessions.Add(sessionEntity);
             }
-            else
-            {
-                session.Db = Db;
-                session.AlarmClock = AlarmClock;
-                // l'utente esiste e ha una sessione valida oppure no, si rinnova comunque
-                session.ResetTime(SessionExpirationInSeconds);
-            }
+            else 
+                session.ResetTime(SessionExpirationInSeconds); // l'utente esiste e ha una sessione valida oppure no, si rinnova comunque
             Db.SaveChanges();
             return session;
         }
@@ -117,16 +97,16 @@ namespace Giliberti
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sites.Any(s => s.Name == Name))
+            var siteEntity = Db.Sites.SingleOrDefault(s => s.Name == Name);
+            if (null == siteEntity)
                 throw new InvalidOperationException("the site is deleted");
 
-            var sessions = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
-            foreach (var s in sessions)
+            var sessionsEntities = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
+            foreach (var s in sessionsEntities)
             {
-                s.Db = Db;
-                s.AlarmClock = AlarmClock;
-                if (!s.IsValid())
-                    s.Logout();
+                var tmpSession = new Session(s.ValidUntil, s.Username, s.SiteName) {Db = Db, AlarmClock = AlarmClock};
+                if (!tmpSession.IsValid())
+                    tmpSession.Logout();
             }
             Db.SaveChanges();
         }
@@ -141,12 +121,13 @@ namespace Giliberti
             if (!Db.Sites.Any(s => s.Name == Name))
                 throw new InvalidOperationException("the site is deleted");
 
-            var session = Db.Sessions.SingleOrDefault(s => s.Id == sessionId);
-            if (session == null)
+            var sessionEntity = Db.Sessions.SingleOrDefault(s => s.Id == sessionId);
+            if (sessionEntity == null)
                 return null;
-
-            session.AlarmClock = AlarmClock;
-            session.Db = Db;
+            var session = new Session(sessionEntity.ValidUntil, sessionEntity.Username, sessionEntity.SiteName)
+            {
+                AlarmClock = AlarmClock, Db = Db
+            };
             return session.IsValid() ? session : null;
         }
 
@@ -157,14 +138,10 @@ namespace Giliberti
             if (!Db.Sites.Any(s => s.Name == Name))
                 throw new InvalidOperationException("the site is deleted");
 
-            var sessions = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
-            foreach (var s in sessions)
-            {
-                s.Db = Db;
-                s.AlarmClock = AlarmClock;
-                // yield return s; TODO vedere se cambia
-            }
-
+            var sessionsEntities = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
+            var sessions = new List<Session>();
+            foreach (var s in sessionsEntities)
+                sessions.Add(new Session(s.ValidUntil, s.Username, s.SiteName){AlarmClock = AlarmClock, Db = Db});
             return sessions;
         }
 
@@ -175,12 +152,10 @@ namespace Giliberti
             if (!Db.Sites.Any(s => s.Name == Name))
                 throw new InvalidOperationException("the site is deleted");
 
-            var users = Users.Select(s => s).ToList();
-            foreach (var u in users)
-            {
-                u.Db = Db;
-                u.AlarmClock = AlarmClock;
-            }
+            var usersEntities = Db.Users.Where(s => s.SiteName == Name).ToList();
+            var users = new List<User>();
+            foreach (var u in usersEntities)
+                users.Add(new User(u.Username, u.SiteName) {AlarmClock = AlarmClock, Db = Db});
 
             return users;
         }
@@ -192,15 +167,14 @@ namespace Giliberti
             if (!Db.Sites.Any(s => s.Name == Name))
                 throw new InvalidOperationException("the site is deleted");
 
-            var auctions = Db.Auctions.Where(a => a.SiteName == Name).Select(a => a).ToList();
+            var auctionsEntities = Db.Auctions.Where(a => a.SiteName == Name).Select(a => a).ToList();
                 
             var auctionsList = new List<Auction>();
-            foreach (var a in auctions)
+            foreach (var a in auctionsEntities)
             {
-                a.Db = Db;
-                a.AlarmClock = AlarmClock;
-                if (!onlyNotEnded || !a.IsEnded())
-                    auctionsList.Add(a);
+                var auction = new Auction(a.Id, a.Description, a.EndsOn, a.SiteName) {Db = Db, AlarmClock = AlarmClock};
+                if (!onlyNotEnded || !auction.IsEnded())
+                    auctionsList.Add(auction);
             }
 
             return auctionsList;
@@ -210,35 +184,39 @@ namespace Giliberti
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Sites.Any(s => s.Name == Name))
+            var siteEntity = Db.Sites.SingleOrDefault(s => s.Name == Name);
+            if (null == siteEntity)
                 throw new InvalidOperationException("the site is already deleted");
 
-            var sessions = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
+            var sessionsEntities = Db.Sessions.Where(s => s.SiteName == Name).Select(s => s).ToList();
             // disposes the sessions' site and auctions' site
-            foreach (var s in sessions)
+            foreach (var sEntity in sessionsEntities)
             {
-                s.Db = Db;
-                s.AlarmClock = AlarmClock;
+                var s = new Session(sEntity.ValidUntil, sEntity.Username, sEntity.SiteName)
+                {
+                    Db = Db, AlarmClock = AlarmClock
+                };
                 s.Logout();
             }
-            var auctions = Db.Auctions.Where(a => a.SiteName == Name).Select(a => a).ToList();
-            foreach (var a in auctions)
+            var auctionsEntities = Db.Auctions.Where(a => a.SiteName == Name).Select(a => a).ToList();
+            foreach (var aEntity in auctionsEntities)
             {
-                a.Db = Db;
-                a.AlarmClock = AlarmClock;
+                var a = new Auction(aEntity.Id, aEntity.Description, aEntity.EndsOn, aEntity.SiteName)
+                {
+                    Db = Db, AlarmClock = AlarmClock
+                };
                 a.Delete();
             }
 
             // disposes the users' site
-            var users = Db.Users.Where(u => u.SiteName == Name).Select(u => u).ToList();
-            foreach (var u in users)
+            var usersEntities = Db.Users.Where(u => u.SiteName == Name).Select(u => u).ToList();
+            foreach (var uEntity in usersEntities)
             {
-                u.Db = Db;
-                u.AlarmClock = AlarmClock;
+                var u = new User(uEntity.Username, uEntity.SiteName) {Db = Db, AlarmClock = AlarmClock};
                 u.Delete();
             }
 
-            Db.Sites.Remove(this);
+            Db.Sites.Remove(siteEntity);
             Db.SaveChanges();
         }
     }

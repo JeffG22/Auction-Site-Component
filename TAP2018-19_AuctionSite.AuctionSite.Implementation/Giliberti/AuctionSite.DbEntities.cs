@@ -7,11 +7,9 @@ using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
-    // TODO hashing password
-    // TODO gestione highest price
-    // TODO le cose per gestire la concorrenza tipo IsRowVersion e Concurrency Token
+    // TODO concorrenza tipo IsRowVersion e Concurrency Token
 
-    public partial class Site : ISite
+    public class SiteEntity
     {
         [Key]
         [MinLength(DomainConstraints.MinSiteName), MaxLength(DomainConstraints.MaxSiteName)]
@@ -25,10 +23,23 @@ namespace Giliberti
         public int SessionExpirationInSeconds { set; get; } // TimeOut: required - inactive session
 
         // navigation properties
-        public virtual ICollection<User> Users { set; get; }
+        public virtual ICollection<UserEntity> Users { set; get; }
+
+        // constructors
+        public SiteEntity()
+        {
+
+        }
+        public SiteEntity(string name, int timezone, int sessionExpirationTimeInSeconds, double minimumBidIncrement)
+        {
+            Name = name;
+            Timezone = timezone;
+            SessionExpirationInSeconds = sessionExpirationTimeInSeconds;
+            MinimumBidIncrement = minimumBidIncrement;
+        }
     }
 
-    public partial class User : IUser
+    public class UserEntity
     {
         [Key, Column(Order = 1)]
         [MinLength(DomainConstraints.MinUserName), MaxLength(DomainConstraints.MaxUserName)]
@@ -41,13 +52,25 @@ namespace Giliberti
         public string SiteName { set; get; }
 
         // navigation properties
-        public virtual Site Site { set; get; }
-        public virtual ICollection<Session> Sessions { set; get; }
+        public virtual SiteEntity Site { set; get; }
+        public virtual ICollection<SessionEntity> Sessions { set; get; }
         // Auction associate, necessario join esplicito per capire seller/winner
-        public virtual ICollection<Auction> Auctions { set; get; } 
+        public virtual ICollection<AuctionEntity> Auctions { set; get; }
+
+        // constructors
+        public UserEntity()
+        {
+        }
+
+        public UserEntity(string username, string password, string siteName)
+        {
+            Username = username;
+            Password = password;
+            SiteName = siteName;
+        }
     }
 
-    public partial class Session : ISession
+    public class SessionEntity
     {
         [Key] public string Id { set; get; }
         [Required] public DateTime ValidUntil { set; get; }
@@ -59,25 +82,25 @@ namespace Giliberti
         [ForeignKey("User"), Column(Order = 1)]
         [Required]
         public string Username { set; get; }
-        
-        // navigation properties
-        public virtual User User { set; get; }
 
-        IUser ISession.User
+        // navigation properties
+        public virtual UserEntity User { set; get; }
+
+        // constructors
+        public SessionEntity()
         {
-            get
-            {
-                if (Db == null)
-                    throw new UnavailableDbException("State of entity out of context, no data available");
-                SiteFactory.ChecksOnDbConnection(Db);
-                if (!Db.Sessions.Any(s => s.Id == Id))
-                    throw new InvalidOperationException(nameof(Session) + " not consistent");
-                return User;
-            }
+
+        }
+        public SessionEntity(DateTime validUntil, string username, string siteName)
+        {
+            Id = siteName + username;
+            ValidUntil = validUntil;
+            Username = username;
+            SiteName = siteName;
         }
     }
 
-    public partial class Auction : IAuction
+    public class AuctionEntity
     {
         [NotMapped] internal const int MaxAuctionDesc = 1000;
 
@@ -100,23 +123,25 @@ namespace Giliberti
         [Required]
         public string SellerUsername { set; get; }
 
-
-
-
         // Navigation properties
-        public virtual User Seller { set; get; }
+        public virtual UserEntity Seller { set; get; }
 
-        IUser IAuction.Seller
+        // constructors
+        public AuctionEntity()
         {
-            get
-            {
-                if (Db == null)
-                    throw new UnavailableDbException("State of entity out of context, no data available");
-                SiteFactory.ChecksOnDbConnection(Db);
-                if (!Db.Auctions.Any(a => a.Id == Id && a.SiteName == SiteName))
-                    throw new InvalidOperationException("the auction does not exist anymore");
-                return Seller;
-            }
+
+        }
+        public AuctionEntity(string description, DateTime endsOn, double startingPrice, string username, string siteName)
+        {
+            Description = description;
+            EndsOn = endsOn;
+            SellerUsername = username;
+            SiteName = siteName;
+            FirstBid = true;
+            CurrentPrice = startingPrice;
+            HighestPrice = startingPrice;
+            WinnerUsername = null;
         }
     }
 }
+

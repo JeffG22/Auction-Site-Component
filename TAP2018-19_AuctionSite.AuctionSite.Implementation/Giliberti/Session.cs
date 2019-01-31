@@ -13,29 +13,17 @@ namespace Giliberti
     /// </summary>
     public partial class Session
     {
-        [NotMapped] internal IAlarmClock AlarmClock { get; set; }
-        [NotMapped] internal AuctionSiteContext Db { get; set; }
-
-        public Session()
-        {
-            Db = null;
-            AlarmClock = null;
-        }
-
-        public Session(DateTime validUntil, string username, string siteName)
-        {
-            Id = siteName+username;
-            ValidUntil = validUntil;
-            Username = username;
-            SiteName = siteName;
-            AlarmClock = null;
-            Db = null;
-        }
+        
         internal void ResetTime(int seconds)
         {
-            if (AlarmClock == null)
-                throw new InvalidOperationException("State of entity out of context, no data available");
-            ValidUntil = AlarmClock.Now.AddSeconds(seconds);
+            SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
+            SiteFactory.ChecksOnDbConnection(Db);
+            var sessionEntity = Db.Sessions.SingleOrDefault(s => s.Id == Id);
+            if (sessionEntity == null)
+                throw new InvalidOperationException("the session does not exist anymore");
+            sessionEntity.ValidUntil = AlarmClock.Now.AddSeconds(seconds);
+            ValidUntil = sessionEntity.ValidUntil;
+            Db.SaveChanges();
         }
         
         // member functions
@@ -44,11 +32,10 @@ namespace Giliberti
             // controllo che sia correttamente creata e presente sul DB
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            var me = Db.Sessions.SingleOrDefault(s => s.Id == Id);
-            if (null == me) // sessione cancellata, logout effettuato
+            var sessionEntity = Db.Sessions.SingleOrDefault(s => s.Id == Id);
+            if (null == sessionEntity) // sessione cancellata, logout effettuato
                 return false;
-
-            return ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
+            return sessionEntity.ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
 
         public void Logout()
@@ -56,11 +43,11 @@ namespace Giliberti
             if (Db == null)
                 throw new InvalidOperationException("State of entity out of context, no data available");
             SiteFactory.ChecksOnDbConnection(Db);
+            var sessionEntity = Db.Sessions.SingleOrDefault(s => s.Id == Id);
+            if (null == sessionEntity) // sessione cancellata, logout effettuato
+                throw new InvalidOperationException(nameof(SessionEntity) + " not consistent");
 
-            if (!Db.Sessions.Any(s => s.Id == Id))
-                throw new InvalidOperationException(nameof(Session) + " not consistent");
-
-            Db.Sessions.Remove(this);
+            Db.Sessions.Remove(sessionEntity);
             Db.SaveChanges();
         }
 
@@ -80,22 +67,22 @@ namespace Giliberti
             if (!Db.Sessions.Any(s => s.Id == Id))
                 throw new InvalidOperationException(nameof(Session) + " not consistent");
 
-            var siteSession = Db.Sites.SingleOrDefault(site => site.Name == SiteName);
-            if (siteSession == null)
+            var siteEntity = Db.Sites.SingleOrDefault(site => site.Name == SiteName);
+            if (siteEntity == null)
                 throw new InvalidOperationException("the site does not exist anymore");
-            var seller = Db.Users.SingleOrDefault(s => s.SiteName == siteSession.Name && s.Username == Username);
-            if (seller == null)
+            var sellerEntity = Db.Users.SingleOrDefault(s => s.SiteName == siteEntity.Name && s.Username == Username);
+            if (sellerEntity == null)
                 throw new InvalidOperationException("the user does not exist anymore");
 
-            var time = siteSession.SessionExpirationInSeconds;
-            var auction =
-                new Auction(description, endsOn, startingPrice, Username, SiteName) {Seller = seller};
-            Db.Auctions.Add(auction);
+            var time = siteEntity.SessionExpirationInSeconds;
+            var auctionEntity =
+                new AuctionEntity(description, endsOn, startingPrice, Username, SiteName) {Seller = sellerEntity};
+            Db.Auctions.Add(auctionEntity);
             ResetTime(time);
             Db.SaveChanges();
 
-            auction.Db = Db;
-            auction.AlarmClock = AlarmClock;
+            var auction = new Auction(auctionEntity.Id, auctionEntity.Description, auctionEntity.EndsOn,
+                auctionEntity.SiteName) {Db = Db, AlarmClock = AlarmClock};
             return auction;
         }
     }

@@ -8,36 +8,13 @@ namespace Giliberti
 {
     public partial class Auction
     {
-        [NotMapped] internal IAlarmClock AlarmClock { get; set; }
-        [NotMapped] internal AuctionSiteContext Db { get; set; }
-
-        public Auction()
-        {
-            Db = null;
-            AlarmClock = null;
-        }
-
-        public Auction(string description, DateTime endsOn, double startingPrice, string username, string siteName)
-        {
-            Description = description;
-            EndsOn = endsOn;
-            SellerUsername = username;
-            SiteName = siteName;
-            FirstBid = true;
-            CurrentPrice = startingPrice;
-            HighestPrice = startingPrice;
-            WinnerUsername = null;
-            Db = null;
-            AlarmClock = null;
-        }
-
         internal bool IsEnded()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             return EndsOn.CompareTo(AlarmClock.Now) < 0; // se minore di zero allora la fine dell'asta è antecedente l'ora attuale
         }
 
-        private void ChecksOnSession(Session session)
+        private void ChecksOnSession(Session session, string sellerUsername)
         {
             try
             {
@@ -51,16 +28,16 @@ namespace Giliberti
 
             // user's validity
             if (session.SiteName != SiteName || // user from a different site
-                session.SiteName == SiteName && session.Username == SellerUsername) // logged user is the seller
+                session.SiteName == SiteName && session.Username == sellerUsername) // logged user is the seller
                 throw new ArgumentException("user not valid");
         }
 
-        private bool BidIsNotAccepted(string username, double offer, double minimum)
+        private bool BidIsNotAccepted(string username, string winnerUsername, bool firstBid, double offer, double minimum, double currentPrice, double highestPrice)
         {
-            return username == WinnerUsername &&
-                   offer < HighestPrice + minimum || // sono il vincitore corrente, offerta troppo bassa
-                   username != WinnerUsername && offer < CurrentPrice && FirstBid || // prima offerta, troppo bassa
-                   username != WinnerUsername && offer < CurrentPrice + minimum && !FirstBid; // non è la prima, troppo bassa
+            return username == winnerUsername &&
+                   offer < highestPrice + minimum || // sono il vincitore corrente, offerta troppo bassa
+                   username != winnerUsername && offer < currentPrice && firstBid || // prima offerta, troppo bassa
+                   username != winnerUsername && offer < currentPrice + minimum && !firstBid; // non è la prima, troppo bassa
         }
 
         public bool BidOnAuction(ISession session, double offer)
@@ -73,75 +50,104 @@ namespace Giliberti
 
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (IsEnded())
-                throw new InvalidOperationException("the auction is already closed");
-            if (!Db.Auctions.Any(a => a.Id == Id && a.SiteName == SiteName))
-                throw new InvalidOperationException("the auction does not exist anymore");
+
             if (!(session is Session))
                 throw new InvalidOperationException("the session is out of the context");
-
             var s = (Session) session;
             s.Db = Db;
             s.AlarmClock = AlarmClock;
-            ChecksOnSession(s);
+
+            var sessionEntity = Db.Sessions.SingleOrDefault(sE => sE.Id == s.Id);
+            if (null == sessionEntity)
+                throw new ArgumentException("the session is not valid: it does not exist anymore");
+
+            var siteEntity = Db.Sites.SingleOrDefault(site => site.Name == sessionEntity.SiteName);
+            if (siteEntity == null)
+                throw new InvalidOperationException("the site does not exist anymore");
+
+            if (!Db.Users.Any(u => u.Username == sessionEntity.Username && u.SiteName == sessionEntity.SiteName))
+                throw new InvalidOperationException("the user does not exist anymore");
+
+            var auctionEntity = Db.Auctions.SingleOrDefault(a => a.Id == Id && a.SiteName == SiteName);
+            if (null == auctionEntity)
+                throw new InvalidOperationException("the auction does not exist anymore");
+            if (IsEnded())
+                throw new InvalidOperationException("the auction is already closed");
+            
+            ChecksOnSession(s, auctionEntity.SiteName);
 
             // the bid is valid
-            var siteAuction = Db.Sites.SingleOrDefault(site => site.Name == s.SiteName);
-            if (siteAuction == null)
-                throw new InvalidOperationException("the site does not exist anymore");
-            var minimum = siteAuction.MinimumBidIncrement;
-            var time = siteAuction.SessionExpirationInSeconds;
+            var minimum = siteEntity.MinimumBidIncrement;
+            var time = siteEntity.SessionExpirationInSeconds;
+            var currentUsername = sessionEntity.Username;
+            var winning = auctionEntity.WinnerUsername;
+            var firstBid = auctionEntity.FirstBid;
+            var currentPrice = auctionEntity.CurrentPrice;
+            var highestPrice = auctionEntity.HighestPrice;
+
 
             s.ResetTime(time);
             Db.SaveChanges();
 
-            if (BidIsNotAccepted(s.Username, offer, minimum))
+            if (BidIsNotAccepted(currentUsername, winning, firstBid, offer, minimum, currentPrice, highestPrice))
                 return false;
 
-            if (!FirstBid && WinnerUsername != s.Username && offer <= HighestPrice)
-                CurrentPrice = offer + minimum < HighestPrice ? offer + minimum : HighestPrice;
+            if (!firstBid && winning != currentUsername && offer <= highestPrice)
+            {
+                currentPrice = offer + minimum < highestPrice ? offer + minimum : highestPrice;
+                auctionEntity.CurrentPrice = currentPrice;
+            }
             else
             {
-                if (!FirstBid && WinnerUsername != s.Username)
-                    CurrentPrice = offer < HighestPrice + minimum ? offer : HighestPrice + minimum;
+                if (!firstBid && winning != currentUsername)
+                {
+                    currentPrice = offer < highestPrice + minimum ? offer : highestPrice + minimum;
+                    auctionEntity.CurrentPrice = currentPrice;
+                }
 
-                HighestPrice = offer;
-                WinnerUsername = s.Username;
-                if (!Db.Users.Any(u => u.Username == WinnerUsername && u.SiteName == SiteName))
-                    throw new InvalidOperationException("the user does not exist anymore");
+                auctionEntity.HighestPrice = offer;
+                auctionEntity.WinnerUsername = currentUsername;
+;
             }
-            FirstBid = false;
+            auctionEntity.FirstBid = false;
             Db.SaveChanges();
             return true;
         }
 
         double IAuction.CurrentPrice()
         {
-            return CurrentPrice;
+            SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
+            SiteFactory.ChecksOnDbConnection(Db);
+            var auctionEntity = Db.Auctions.SingleOrDefault(a => a.Id == Id && a.SiteName == SiteName);
+            if (auctionEntity == null)
+                throw new InvalidOperationException("the auction does not exist anymore");
+            return auctionEntity.CurrentPrice;
         }
 
         public IUser CurrentWinner()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Auctions.Any(a => a.Id == Id && a.SiteName == SiteName))
+            var auctionEntity = Db.Auctions.SingleOrDefault(a => a.Id == Id && a.SiteName == SiteName);
+            if (auctionEntity == null)
                 throw new InvalidOperationException("the auction does not exist anymore");
 
-            if (null == WinnerUsername)
+            if (null == auctionEntity.WinnerUsername)
                 return null;
 
-            var user = Db.Users.SingleOrDefault(u => u.Username == WinnerUsername && u.SiteName == SiteName);
-            return null == user ? null : user;
+            var userEntity = Db.Users.SingleOrDefault(u => u.Username == auctionEntity.WinnerUsername && u.SiteName == SiteName);
+            return null == userEntity ? null : new User(userEntity.Username, userEntity.SiteName) { Db = Db, AlarmClock = AlarmClock};
         }
 
         public void Delete()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Auctions.Any(a => a.Id == Id && a.SiteName == SiteName))
+            var auctionEntity = Db.Auctions.SingleOrDefault(a => a.Id == Id && a.SiteName == SiteName);
+            if (auctionEntity == null)
                 throw new InvalidOperationException("the auction does not exist anymore");
 
-            Db.Auctions.Remove(this);
+            Db.Auctions.Remove(auctionEntity);
             Db.SaveChanges();
         }
 

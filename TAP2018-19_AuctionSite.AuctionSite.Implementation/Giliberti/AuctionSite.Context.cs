@@ -17,14 +17,13 @@ namespace Giliberti
         private const int SqlUniqueConstraint = 2601; // violation of primary unique index constraint
 
         // DbSet
-        public DbSet<Site> Sites { get; set; }
-        public DbSet<User> Users { get; set; }
-        public DbSet<Auction> Auctions { get; set; }
-        public DbSet<Session> Sessions { get; set; }
+        public DbSet<SiteEntity> Sites { get; set; }
+        public DbSet<UserEntity> Users { get; set; }
+        public DbSet<AuctionEntity> Auctions { get; set; }
+        public DbSet<SessionEntity> Sessions { get; set; }
 
         public AuctionSiteContext(string cs) : base(cs)
         {
-            //Cs = cs;
         }
 
         protected override void OnModelCreating(DbModelBuilder builder)

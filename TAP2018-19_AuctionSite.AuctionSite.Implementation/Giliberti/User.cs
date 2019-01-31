@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
@@ -13,23 +11,7 @@ namespace Giliberti
     /// </summary>
     public partial class User
     {
-        [NotMapped] internal IAlarmClock AlarmClock { get; set; }
-        [NotMapped] internal AuctionSiteContext Db { get; set; }
-
-        public User()
-        {
-            Db = null;
-            AlarmClock = null;
-        }
-
-        public User(string username, string password, string name)
-        {
-            Username = username;
-            Password = password;
-            SiteName = name;
-            AlarmClock = null;
-            Db = null;
-        }
+        
         internal static bool NotValidUsername(string username)
         {
             return username.Length < DomainConstraints.MinUserName || username.Length > DomainConstraints.MaxUserName || string.IsNullOrWhiteSpace(username);
@@ -46,14 +28,16 @@ namespace Giliberti
             if (!Db.Users.Any(u => u.Username == Username && u.SiteName == SiteName))
                 throw new InvalidOperationException("the user does not exist anymore");
 
-            var auctions = Db.Auctions.Where(a => a.SiteName == SiteName && a.WinnerUsername == Username)
+            var auctionsEntities = Db.Auctions.Where(a => a.SiteName == SiteName && a.WinnerUsername == Username)
                 .Select(a => a).ToList();
             var auctionList = new List<Auction>();
 
-            foreach (var a in auctions)
+            foreach (var aEntity in auctionsEntities)
             {
-                a.Db = Db;
-                a.AlarmClock = AlarmClock;
+                var a = new Auction(aEntity.Id, aEntity.Description, aEntity.EndsOn, aEntity.SiteName)
+                {
+                    Db = Db, AlarmClock = AlarmClock
+                };
                 if (a.IsEnded())
                     auctionList.Add(a);
             }
@@ -65,27 +49,28 @@ namespace Giliberti
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-            if (!Db.Users.Any(u => u.Username == Username && u.SiteName == SiteName))
+            var userEntity = Db.Users.SingleOrDefault(u => u.Username == Username && u.SiteName == SiteName);
+            if (null == userEntity)
                 throw new InvalidOperationException("the user does not exist anymore");
 
             // owner of auctions not ended yet, winner of auctions not ended yet -> IOE exception
-            var anySellerAuctions = Db.Auctions.Where(a => a.SellerUsername == Username && a.SiteName == SiteName);
-            var anyWinnerAuctions = Db.Auctions.Where(a => a.WinnerUsername == Username && a.SiteName == SiteName);
+            var anySellerAuctionsEntities = Db.Auctions.Where(a => a.SellerUsername == Username && a.SiteName == SiteName);
+            var anySellerAuctions = new List<Auction>();
+            var anyWinnerAuctionsEntities = Db.Auctions.Where(a => a.WinnerUsername == Username && a.SiteName == SiteName);
             var deletable = true;
-            foreach (var a in anySellerAuctions)
+            foreach (var aEntity in anySellerAuctionsEntities)
             {
-                a.Db = Db;
-                a.AlarmClock = AlarmClock;
+                var a = new Auction(aEntity.Id, aEntity.Description, aEntity.EndsOn, aEntity.SiteName) {Db = Db, AlarmClock = AlarmClock};
+                anySellerAuctions.Add(a);
                 if (a.IsEnded()) continue;
                 deletable = false;
                 break;
             }
             if (!deletable)
                 throw new InvalidOperationException("the user's auction(s) is not ended yet");
-            foreach (var a in anyWinnerAuctions)
+            foreach (var aEntity in anyWinnerAuctionsEntities)
             {
-                a.Db = Db;
-                a.AlarmClock = AlarmClock;
+                var a = new Auction(aEntity.Id, aEntity.Description, aEntity.EndsOn, aEntity.SiteName) { Db = Db, AlarmClock = AlarmClock };
                 if (a.IsEnded()) continue;
                 deletable = false;
                 break;
@@ -97,7 +82,7 @@ namespace Giliberti
             foreach (var a in anySellerAuctions)
                 a.Delete();
 
-            foreach (var a in anySellerAuctions)
+            foreach (var a in anyWinnerAuctionsEntities)
                 a.WinnerUsername = null;
 
             var sessions = Db.Sessions.Where(s => s.SiteName == SiteName && s.Username == Username).Select(s => s);
@@ -105,7 +90,7 @@ namespace Giliberti
                 Db.Sessions.Remove(s);
 
             // the user is removed and the Db and AlarmClock must be null
-            Db.Users.Remove(this);
+            Db.Users.Remove(userEntity);
             Db.SaveChanges();
 
         }

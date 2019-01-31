@@ -71,9 +71,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Auction.cs" />
-    <Compile Include="AuctionSiteContext.cs" />
-    <Compile Include="AuctionSiteNinjectModule.cs" />
-    <Compile Include="Db.Entities.cs" />
+    <Compile Include="AuctionSite.Classes.cs" />
+    <Compile Include="AuctionSite.Context.cs" />
+    <Compile Include="AuctionSite.NinjectModule.cs" />
+    <Compile Include="AuctionSite.DbEntities.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Session.cs" />
     <Compile Include="Site.cs" />

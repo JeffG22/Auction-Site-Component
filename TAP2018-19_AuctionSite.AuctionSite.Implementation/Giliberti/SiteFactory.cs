@@ -106,7 +106,7 @@ namespace Giliberti
                 ChecksOnDbConnection(context);
                 if(context.Sites.Any(s => s.Name == name))
                     throw new NameAlreadyInUseException(nameof(name), " of site already in use");
-                context.Sites.Add(new Site(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
+                context.Sites.Add(new SiteEntity(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
                 context.SaveChanges();
                 if (_loadedSite.ContainsKey(name))
                     _loadedSite.Remove(name);
@@ -124,22 +124,25 @@ namespace Giliberti
             // attempt to Load Site
             var context = new AuctionSiteContext(connectionString);
             ChecksOnDbConnection(context);
-            var site = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
+            var siteEntity = context.Sites.Find(name); // if more than one, it throws InvalidOperationException which is okay
 
-            if (site == null)
+            if (siteEntity == null)
                 throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
-            if (site.Timezone != alarmClock.Timezone)
+            if (siteEntity.Timezone != alarmClock.Timezone)
                 throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
-            if (_loadedSite.ContainsKey(site.Name))
+            Site site;
+            if (_loadedSite.ContainsKey(siteEntity.Name))
             {
-                _loadedSite.TryGetValue(site.Name, out site);
+                _loadedSite.TryGetValue(siteEntity.Name, out site);
                 if (site == null)
                     throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
             }
             else
             {
-                _loadedSite.Add(site.Name, site);
+                site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
+                    siteEntity.MinimumBidIncrement);
+                _loadedSite.Add(siteEntity.Name, site);
                 // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
                 site.AlarmClock = alarmClock;
                 site.Db = context; // dispose entrusted to it
@@ -191,14 +194,14 @@ namespace Giliberti
         {
             ChecksOnName(siteName);
             ChecksOnDbConnection(context);
-            var site = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
+            var siteEntity = context.Sites.Find(siteName); // if more than one, it throws InvalidOperationException which is okay
 
-            if (site == null)
+            if (siteEntity == null)
                 alarm.Dispose(); // prova a vedere se ci sono problemi
             else
             {
-                site.Db = context;
-                site.AlarmClock = alarmClock;
+                var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
+                    siteEntity.MinimumBidIncrement) {Db = context, AlarmClock = alarmClock};
                 site.CleanupSessions();
             }
         }
