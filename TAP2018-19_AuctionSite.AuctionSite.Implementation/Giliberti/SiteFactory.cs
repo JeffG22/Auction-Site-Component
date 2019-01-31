@@ -9,19 +9,24 @@ using TAP2018_19.AuctionSite.Interfaces;
 namespace Giliberti
 {
     /// <summary>
-    /// initialize the system
-    /// create or load a site
+    /// This class is the main class of the component, to manage each permanent object and to allow the client's requests.
+    /// - initialize the system
+    /// - create or load a site
+    /// - get all the site
+    /// - provide a connection string / context to other classes to make it usable by the client
+    /// To manage the entities and the interfaces there are two levels: logical one which implements the interfaces (view, controller) and the physical one for the db (model)
+    /// This is achieved injecting the connection string and the alarmclock to each logical entity which has a corresponding physical one in the db.
     /// </summary>
     public class SiteFactory : ISiteFactory
     {
-        private const int CleanUpTimeInSec = 5*60*1000;
-        private Dictionary<string, Site> _loadedSite;
+        private const int CleanUpTime = 5*60*1000; // 5 minutes in milliseconds
 
         private static bool NotValidConnectionString(string cs)
         {
             return string.IsNullOrWhiteSpace(cs) || !cs.Contains("Data Source=");
         }
 
+        // to allow the query there have to be a valid connection string
         private void ChecksOnConnectionString(string connectionString)
         {
             if (null == connectionString)
@@ -38,6 +43,7 @@ namespace Giliberti
                 throw new ArgumentException("It is strictly larger or smaller than the constraint", nameof(name));
         }
 
+        // to allow the query and the methods there have to be a valid context and alarmclock for each existing object returned to the client
         internal static void ChecksOnContextAndClock(AuctionSiteContext db, IAlarmClock alarmClock)
         {
             if (db == null || alarmClock == null)
@@ -62,6 +68,7 @@ namespace Giliberti
             }
         }
 
+        // to initialize all the system
         public void Setup(string connectionString)
         {
             // constraints
@@ -86,9 +93,9 @@ namespace Giliberti
             {
                 throw new UnavailableDbException("error on DB Setup", e);
             }
-            _loadedSite = new Dictionary<string, Site>();
         }
 
+        // after checks it creates a new site
         public void CreateSiteOnDb(string connectionString, string name, int timezone, int sessionExpirationTimeInSeconds,
             double minimumBidIncrement)
         {
@@ -108,11 +115,10 @@ namespace Giliberti
                     throw new NameAlreadyInUseException(nameof(name), " of site already in use");
                 context.Sites.Add(new SiteEntity(name, timezone, sessionExpirationTimeInSeconds, minimumBidIncrement));
                 context.SaveChanges();
-                if (_loadedSite.ContainsKey(name))
-                    _loadedSite.Remove(name);
             }
         }
 
+        // after checks it loads an existing site and returns it to the client
         public ISite LoadSite(string connectionString, string name, IAlarmClock alarmClock)
         {
             // constraints
@@ -131,24 +137,11 @@ namespace Giliberti
             if (siteEntity.Timezone != alarmClock.Timezone)
                 throw new ArgumentException("timezone is not equal to the one of the site", nameof(alarmClock));
 
-            Site site;
-            if (_loadedSite.ContainsKey(siteEntity.Name))
-            {
-                _loadedSite.TryGetValue(siteEntity.Name, out site);
-                if (site == null)
-                    throw new InexistentNameException(nameof(name), " corresponding site is not present in the DB");
-            }
-            else
-            {
-                site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
-                    siteEntity.MinimumBidIncrement);
-                _loadedSite.Add(siteEntity.Name, site);
-                // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
-                site.AlarmClock = alarmClock;
-                site.Db = context; // dispose entrusted to it
-            }
+            // "injection" of the alarm clock and  the context to make possible the queries inside ISite's methods
+            var site = new Site(siteEntity.Name, siteEntity.Timezone, siteEntity.SessionExpirationInSeconds,
+                siteEntity.MinimumBidIncrement) {AlarmClock = alarmClock, Db = context};
 
-            var alarm = alarmClock.InstantiateAlarm(CleanUpTimeInSec);
+            var alarm = alarmClock.InstantiateAlarm(CleanUpTime);
             var siteName = site.Name;
             // metodo anonimo con due riferimenti per evitare di mantenere contesto aperto
             alarm.RingingEvent += delegate { MakeCleanUpSessionIfExists(alarmClock, alarm, context, siteName); }; 
@@ -190,6 +183,7 @@ namespace Giliberti
             }
         }
 
+        // auxiliary function to invoke cleanUpSessions with all the args necessary
         internal void MakeCleanUpSessionIfExists(IAlarmClock alarmClock, IAlarm alarm, AuctionSiteContext context, string siteName)
         {
             ChecksOnName(siteName);

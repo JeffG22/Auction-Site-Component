@@ -1,19 +1,18 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
     /// <summary>
-    /// start with a login, end by logout or inactivity of the user owner
-    /// user access its session by 
+    /// Session is a logic class to represent the sessions entities in the db
+    /// This partial class implements its methods according to the interface ISession
+    /// starts with a login, ends by logout or inactivity of the user owner
     /// closed -> dropped each five minutes or by explicit request of cleanup
     /// </summary>
     public partial class Session
     {
-        
+        // to reset the expiration time
         internal void ResetTime(int seconds)
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
@@ -26,7 +25,7 @@ namespace Giliberti
             Db.SaveChanges();
         }
         
-        // member functions
+        // to checks if it is valid that is correctly present on the db and not expired
         public bool IsValid()
         {
             // controllo che sia correttamente creata e presente sul DB
@@ -38,6 +37,7 @@ namespace Giliberti
             return sessionEntity.ValidUntil.CompareTo(AlarmClock.Now) > 0; // Ritorna maggiore di zero se la scadenza è dopo l'ora attuale
         }
 
+        // to end the session if it is still present
         public void Logout()
         {
             if (Db == null)
@@ -51,6 +51,7 @@ namespace Giliberti
             Db.SaveChanges();
         }
 
+        // after the constraints it creates the auction, renews the the session, returns the auction
         public IAuction CreateAuction(string description, DateTime endsOn, double startingPrice)
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);

@@ -1,19 +1,23 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
+    /// <summary>
+    /// Auction is a logic class to represent the auctions entities in the db
+    /// This partial class implements its methods according to the interface IAuction
+    /// </summary>
     public partial class Auction
     {
+        // it checks if ended
         internal bool IsEnded()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             return EndsOn.CompareTo(AlarmClock.Now) < 0; // se minore di zero allora la fine dell'asta è antecedente l'ora attuale
         }
 
+        // the constraints must be respected otherwise it throws exception
         private void ChecksOnSession(Session session, string sellerUsername)
         {
             try
@@ -32,7 +36,8 @@ namespace Giliberti
                 throw new ArgumentException("user not valid");
         }
 
-        private bool BidIsNotAccepted(string username, string winnerUsername, bool firstBid, double offer, double minimum, double currentPrice, double highestPrice)
+        // checks to verify the bid's validity according to the requirements
+        private static bool BidIsNotAccepted(string username, string winnerUsername, bool firstBid, double offer, double minimum, double currentPrice, double highestPrice)
         {
             return username == winnerUsername &&
                    offer < highestPrice + minimum || // sono il vincitore corrente, offerta troppo bassa
@@ -42,7 +47,7 @@ namespace Giliberti
 
         public bool BidOnAuction(ISession session, double offer)
         {
-            // constraints
+            // constraints, many checks on the args and the corresponding permanent objects
             if (null == session)
                 throw new ArgumentNullException(nameof(session), "is null");
             if (offer < 0)
@@ -50,9 +55,8 @@ namespace Giliberti
 
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
             SiteFactory.ChecksOnDbConnection(Db);
-
             if (!(session is Session))
-                throw new InvalidOperationException("the session is out of the context");
+                throw new ArgumentException("the session is not valid: it is out of the context");
             var s = (Session) session;
             s.Db = Db;
             s.AlarmClock = AlarmClock;
@@ -76,10 +80,9 @@ namespace Giliberti
             
             ChecksOnSession(s, auctionEntity.SiteName);
 
-            // the bid is valid
+            // the session is valid, the bid too
             var minimum = siteEntity.MinimumBidIncrement;
             var time = siteEntity.SessionExpirationInSeconds;
-            var currentUsername = sessionEntity.Username;
             var winning = auctionEntity.WinnerUsername;
             var firstBid = auctionEntity.FirstBid;
             var currentPrice = auctionEntity.CurrentPrice;
@@ -89,25 +92,23 @@ namespace Giliberti
             s.ResetTime(time);
             Db.SaveChanges();
 
-            if (BidIsNotAccepted(currentUsername, winning, firstBid, offer, minimum, currentPrice, highestPrice))
+            if (BidIsNotAccepted(s.Username, winning, firstBid, offer, minimum, currentPrice, highestPrice)) 
                 return false;
 
-            if (!firstBid && winning != currentUsername && offer <= highestPrice)
+            if (!firstBid && winning != s.Username && offer <= highestPrice)
             {
                 currentPrice = offer + minimum < highestPrice ? offer + minimum : highestPrice;
                 auctionEntity.CurrentPrice = currentPrice;
             }
-            else
+            else // a new major bidder is coming!
             {
-                if (!firstBid && winning != currentUsername)
+                if (!firstBid && winning != s.Username)
                 {
                     currentPrice = offer < highestPrice + minimum ? offer : highestPrice + minimum;
                     auctionEntity.CurrentPrice = currentPrice;
                 }
-
                 auctionEntity.HighestPrice = offer;
-                auctionEntity.WinnerUsername = currentUsername;
-;
+                auctionEntity.WinnerUsername = s.Username;
             }
             auctionEntity.FirstBid = false;
             Db.SaveChanges();

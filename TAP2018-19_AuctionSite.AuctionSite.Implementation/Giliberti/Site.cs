@@ -1,20 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using TAP2018_19.AlarmClock.Interfaces;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
     /// <summary>
-    /// managing user, THEIR sessions and auctions
+    /// Site is a logic class to represent the sites entities in the db
+    /// This partial class implements its methods according to the interface ISite
+    /// managing user, their sessions and auctions
     /// root of an aggregate (user, session, auction no meaning outside)
     /// </summary>
     public partial class Site
     {
 
-        // contraints
+        // constraints
         internal static bool NotValidName(string name)
         {
             return name.Length < DomainConstraints.MinSiteName || name.Length > DomainConstraints.MaxSiteName || string.IsNullOrWhiteSpace(name);
@@ -43,6 +43,7 @@ namespace Giliberti
                 throw new ArgumentException("Its length is strictly smaller or larger than the constraint", nameof(username));
         }
 
+        // if all the constraints are respected it will create the user, otherwise it throws exception
         public void CreateUser(string username, string password)
         {
             ChecksOnUsernameAndPassword(username, password);
@@ -60,6 +61,7 @@ namespace Giliberti
             Db.SaveChanges();
         }
 
+        // it allows to sign in if possible. If a session already existing it will be renewed in each cases otherwise a new one is created.
         public ISession Login(string username, string password)
         {
             ChecksOnUsernameAndPassword(username, password);
@@ -93,6 +95,7 @@ namespace Giliberti
             return session;
         }
 
+        // if the site is still existing it will delete all the sessions
         public void CleanupSessions()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
@@ -111,6 +114,7 @@ namespace Giliberti
             Db.SaveChanges();
         }
 
+        // it returns the session if it is still valid
         public ISession GetSession(string sessionId)
         {
             if (sessionId == null)
@@ -131,6 +135,7 @@ namespace Giliberti
             return session.IsValid() ? session : null;
         }
 
+        // it returns all the sessions if the site is not deleted
         public IEnumerable<ISession> GetSessions()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
@@ -145,6 +150,7 @@ namespace Giliberti
             return sessions;
         }
 
+        // it returns all the users if the site is not deleted
         public IEnumerable<IUser> GetUsers()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
@@ -160,6 +166,7 @@ namespace Giliberti
             return users;
         }
 
+        // return the auctions if the site is still present
         public IEnumerable<IAuction> GetAuctions(bool onlyNotEnded)
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);
@@ -180,6 +187,7 @@ namespace Giliberti
             return auctionsList;
         }
 
+        // delete every corresponded objects since it is the root of an aggregate
         public void Delete()
         {
             SiteFactory.ChecksOnContextAndClock(Db, AlarmClock);

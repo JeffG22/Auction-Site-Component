@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
 using TAP2018_19.AuctionSite.Interfaces;
 
 namespace Giliberti
 {
-    // TODO concorrenza tipo IsRowVersion e Concurrency Token
+    /// <summary>
+    /// Each of this classes declares a db relationship to implement the corresponding permanent object (model)
+    /// </summary>
 
     public class SiteEntity
     {
