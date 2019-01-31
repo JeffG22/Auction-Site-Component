@@ -3,6 +3,7 @@ using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.Validation;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Linq;
 using TAP2018_19.AuctionSite.Interfaces;
 
@@ -41,8 +42,8 @@ namespace Giliberti
             }
             catch (DbUpdateConcurrencyException error)
             {
-                Console.WriteLine("entity: "+error.Entries.First().Entity);
-                Console.WriteLine("value: "+error.Entries.First().CurrentValues);
+                Debug.WriteLine("entity: "+error.Entries.First().Entity);
+                Debug.WriteLine("value: "+error.Entries.First().CurrentValues);
                 throw new ConcurrentChangeException("Attempt to update an entity which has been concurrently modified", error);
             }
             catch (DbEntityValidationException error)
