@@ -7,16 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Giliberti", "Giliberti\Gili
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TAP2018_19.AuctionSite.Interfaces.Tests", "TAP2018_19.AuctionSite.Interfaces.Tests\TAP2018_19.AuctionSite.Interfaces.Tests.csproj", "{410652BE-FB55-4A16-AC72-9AE53BF1F1D3}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{5D7EB106-2503-49C4-8DCF-D49136104AB6}"
-	ProjectSection(SolutionItems) = preProject
-		..\TAP2018-19_AuctionSite.AlarmClock.Interface.dll = ..\TAP2018-19_AuctionSite.AlarmClock.Interface.dll
-		..\TAP2018-19_AuctionSite.AlarmClock.Interface.pdb = ..\TAP2018-19_AuctionSite.AlarmClock.Interface.pdb
-		..\TAP2018-19_AuctionSite.AuctionSite.Interface.dll = ..\TAP2018-19_AuctionSite.AuctionSite.Interface.dll
-		..\TAP2018-19_AuctionSite.AuctionSite.Interface.pdb = ..\TAP2018-19_AuctionSite.AuctionSite.Interface.pdb
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleAppMyselfTesting", "ConsoleAppMyselfTesting\ConsoleAppMyselfTesting.csproj", "{86ABC0A4-11F7-4CAC-9B3A-9FE62C9C74F5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,10 +21,6 @@ Global
 		{410652BE-FB55-4A16-AC72-9AE53BF1F1D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{410652BE-FB55-4A16-AC72-9AE53BF1F1D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{410652BE-FB55-4A16-AC72-9AE53BF1F1D3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{86ABC0A4-11F7-4CAC-9B3A-9FE62C9C74F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{86ABC0A4-11F7-4CAC-9B3A-9FE62C9C74F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{86ABC0A4-11F7-4CAC-9B3A-9FE62C9C74F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{86ABC0A4-11F7-4CAC-9B3A-9FE62C9C74F5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
